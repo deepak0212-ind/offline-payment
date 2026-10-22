@@ -6,15 +6,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from app.core.database import Base, engine
 from app.seed import seed_database
+from app.api import api_router
 
-from app.routers.auth import router as auth_router
-from app.routers.devices import router as devices_router
-from app.routers.wallet import router as wallet_router
-from app.routers.certificates import router as certificates_router
-from app.routers.transactions import router as transactions_router
-from app.routers.risk import router as risk_router
-from app.routers.disputes import router as disputes_router
-from app.routers.analyst import router as analyst_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -40,15 +33,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Register routers under /api
-app.include_router(auth_router, prefix="/api")
-app.include_router(devices_router, prefix="/api")
-app.include_router(wallet_router, prefix="/api")
-app.include_router(certificates_router, prefix="/api")
-app.include_router(transactions_router, prefix="/api")
-app.include_router(risk_router, prefix="/api")
-app.include_router(disputes_router, prefix="/api")
-app.include_router(analyst_router, prefix="/api")
+# Register all API endpoints under /api
+app.include_router(api_router, prefix="/api")
 
 
 @app.get("/")
@@ -59,8 +45,3 @@ def root():
         "docs_url": "/docs",
         "redoc_url": "/redoc"
     }
-
-
-@app.get("/health")
-def health():
-    return {"status": "healthy"}

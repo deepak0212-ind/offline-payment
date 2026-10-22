@@ -1,7 +1,17 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { ShieldCheck, LogIn, Key, UserCheck, AlertCircle } from 'lucide-react';
+import {
+  Wallet,
+  Eye,
+  EyeOff,
+  User,
+  Store,
+  Shield,
+  ArrowRight,
+  AlertCircle,
+  CheckCircle2,
+} from 'lucide-react';
 import { apiService } from '../api/client';
 
 export function Login() {
@@ -10,7 +20,9 @@ export function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [isRegistering, setIsRegistering] = useState(false);
+  const [activeQuickRole, setActiveQuickRole] = useState(null);
   const [success, setSuccess] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -22,10 +34,12 @@ export function Login() {
     setError('');
     setSuccess('');
     setLoading(true);
+
     try {
       if (isRegistering) {
         if (password !== confirmPassword) {
           setError('Passwords do not match');
+          setLoading(false);
           return;
         }
         await apiService.register({
@@ -38,9 +52,11 @@ export function Login() {
         setIsRegistering(false);
         setPassword('');
         setConfirmPassword('');
-        setSuccess('Account created. You can now sign in.');
+        setSuccess('Account created! You can now sign in.');
+        setLoading(false);
         return;
       }
+
       const user = await login(username, password);
       if (user.role === 'analyst') {
         navigate('/analyst');
@@ -54,219 +70,233 @@ export function Login() {
     }
   };
 
-  const handleQuickLogin = (uname, pwd) => {
-    setUsername(uname);
-    setPassword(pwd);
+  const handleQuickLogin = async (uname, pwd, roleKey) => {
     setError('');
+    setActiveQuickRole(roleKey);
     setLoading(true);
-    login(uname, pwd)
-      .then((user) => {
-        if (user.role === 'analyst') {
-          navigate('/analyst');
-        } else {
-          navigate('/dashboard');
-        }
-      })
-      .catch((err) => {
-        setError(err.response?.data?.detail || 'Quick login failed');
-        setLoading(false);
-      });
+    try {
+      setUsername(uname);
+      setPassword(pwd);
+      const user = await login(uname, pwd);
+      if (user.role === 'analyst') {
+        navigate('/analyst');
+      } else {
+        navigate('/dashboard');
+      }
+    } catch (err) {
+      setError(err.response?.data?.detail || `Could not sign in as ${uname}`);
+      setActiveQuickRole(null);
+      setLoading(false);
+    }
   };
 
+  const demoPresets = [
+    { id: 'customer1', label: 'Customer 1', role: 'Payer', icon: User, username: 'customer1' },
+    { id: 'customer2', label: 'Customer 2', role: 'Second Payer', icon: User, username: 'customer2' },
+    { id: 'merchant', label: 'Merchant', role: 'Payee POS', icon: Store, username: 'merchant' },
+    { id: 'analyst', label: 'Analyst', role: 'Security Desk', icon: Shield, username: 'analyst' },
+  ];
+
   return (
-    <div
-      style={{
-        minHeight: '100vh',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: 'var(--bg-main)',
-        padding: '1.5rem',
-      }}
-    >
-      <div style={{ maxWidth: '440px', width: '100%' }}>
-        {/* Header */}
-        <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
-          <div
-            style={{
-              display: 'inline-flex',
-              padding: '0.75rem',
-              backgroundColor: 'var(--primary)',
-              color: '#ffffff',
-              borderRadius: 'var(--radius-md)',
-              marginBottom: '1rem',
-            }}
-          >
-            <ShieldCheck size={36} />
+    <div className="human-login-wrapper">
+      <div className="human-login-card">
+        {/* Brand Header */}
+        <div className="human-login-header">
+          <div className="human-brand-icon">
+            <Wallet size={24} />
           </div>
-          <h1 style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--primary)' }}>
-            OfflinePay
-          </h1>
-          <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>
-            Offline Payment System with Cryptographic Double-Spend Protection
+          <h1 className="human-brand-title">OfflinePay</h1>
+          <p className="human-brand-subtitle">
+            {isRegistering
+              ? 'Create an account to start testing offline payments'
+              : 'Sign in to access your offline wallet & receipts'}
           </p>
         </div>
 
-        {/* Card */}
-        <div className="card" style={{ boxShadow: 'var(--shadow-md)', marginBottom: '1.5rem' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.25rem' }}>
-            <LogIn size={20} color="var(--primary)" />
-            <h2 style={{ fontSize: '1.2rem', fontWeight: 700 }}>
-              {isRegistering ? 'Create your customer account' : 'Sign in to your wallet'}
-            </h2>
+        {/* Demo Fast Switcher */}
+        {!isRegistering && (
+          <div className="human-demo-box">
+            <span className="human-demo-label">Demo Quick Login</span>
+            <div className="human-demo-pills">
+              {demoPresets.map((item) => {
+                const Icon = item.icon;
+                const isSelected = activeQuickRole === item.id && loading;
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    disabled={loading}
+                    onClick={() => handleQuickLogin(item.username, 'DemoPass123!', item.id)}
+                    className={`human-demo-pill ${isSelected ? 'is-loading' : ''}`}
+                    title={`Log in as ${item.username}`}
+                  >
+                    <Icon size={14} />
+                    <span>{item.label}</span>
+                  </button>
+                );
+              })}
             </div>
+          </div>
+        )}
 
-            {success && (
-              <div className="alert alert-success" style={{ padding: '0.75rem', fontSize: '0.85rem' }}>
-                <span>{success}</span>
-              </div>
-            )}
-            {error && (
-            <div className="alert alert-danger" style={{ padding: '0.75rem', fontSize: '0.85rem' }}>
-              <AlertCircle size={16} />
-              <span>{error}</span>
+        {/* Status Alerts */}
+        {error && (
+          <div className="human-alert human-alert-error">
+            <AlertCircle size={16} />
+            <span>{error}</span>
+          </div>
+        )}
+        {success && (
+          <div className="human-alert human-alert-success">
+            <CheckCircle2 size={16} />
+            <span>{success}</span>
+          </div>
+        )}
+
+        {/* Form */}
+        <form onSubmit={handleSubmit} className="human-form">
+          {isRegistering && (
+            <div className="human-field">
+              <label htmlFor="fullName">Full Name</label>
+              <input
+                id="fullName"
+                type="text"
+                placeholder="e.g. John Doe"
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+                required
+              />
             </div>
           )}
 
-          <form onSubmit={handleSubmit}>
-            {isRegistering && (
-              <>
-                <div className="form-group">
-                  <label className="form-label">Full name</label>
-                  <input
-                    type="text"
-                    className="form-control"
-                    value={fullName}
-                    onChange={(e) => setFullName(e.target.value)}
-                    required
-                  />
-                </div>
-              </>
-            )}
-            <div className="form-group">
-              <label className="form-label">Username</label>
+          <div className="human-field">
+            <label htmlFor="username">Username</label>
+            <input
+              id="username"
+              type="text"
+              placeholder="e.g. customer1, merchant"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              required
+              autoComplete="username"
+            />
+          </div>
+
+          {isRegistering && (
+            <div className="human-field">
+              <label htmlFor="email">Email</label>
               <input
-                type="text"
-                className="form-control"
-                placeholder="e.g. customer1"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
+                id="email"
+                type="email"
+                placeholder="e.g. name@example.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
                 required
+                autoComplete="email"
               />
             </div>
+          )}
 
-            {isRegistering && (
-              <div className="form-group">
-                <label className="form-label">Email address</label>
-                <input
-                  type="email"
-                  className="form-control"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                />
-              </div>
-            )}
-
-            <div className="form-group">
-              <label className="form-label">Password</label>
+          <div className="human-field">
+            <div className="human-field-header">
+              <label htmlFor="password">Password</label>
+              {!isRegistering && (
+                <span className="human-hint">Password: DemoPass123!</span>
+              )}
+            </div>
+            <div className="password-input-wrapper">
               <input
-                type="password"
-                className="form-control"
-                placeholder="••••••••"
+                id="password"
+                type={showPassword ? 'text' : 'password'}
+                placeholder="Enter password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
+                autoComplete={isRegistering ? 'new-password' : 'current-password'}
+              />
+              <button
+                type="button"
+                className="password-toggle-btn"
+                onClick={() => setShowPassword((prev) => !prev)}
+                tabIndex={-1}
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
+              >
+                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            </div>
+          </div>
+
+          {isRegistering && (
+            <div className="human-field">
+              <label htmlFor="confirmPassword">Confirm Password</label>
+              <input
+                id="confirmPassword"
+                type="password"
+                placeholder="Repeat password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                minLength={8}
+                required
+                autoComplete="new-password"
               />
             </div>
-
-            {isRegistering && (
-              <div className="form-group">
-                <label className="form-label">Confirm password</label>
-                <input
-                  type="password"
-                  className="form-control"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  minLength={8}
-                  required
-                />
-              </div>
-            )}
-
-            <button
-              type="submit"
-              className="btn btn-primary"
-              style={{ width: '100%', marginTop: '0.5rem' }}
-              disabled={loading}
-            >
-              {loading ? (isRegistering ? 'Creating account...' : 'Signing in...') : (isRegistering ? 'Create account' : 'Sign In')}
-            </button>
-          </form>
+          )}
 
           <button
-            type="button"
-            onClick={() => {
-              setIsRegistering(!isRegistering);
-              setError('');
-              setSuccess('');
-            }}
-            className="btn btn-link"
-            style={{ width: '100%', marginTop: '0.75rem' }}
+            type="submit"
+            disabled={loading}
+            className="human-submit-btn"
           >
-            {isRegistering ? 'Already have an account? Sign in' : 'Create account'}
+            {loading ? (
+              <span>Signing in...</span>
+            ) : isRegistering ? (
+              <span>Create Account</span>
+            ) : (
+              <>
+                <span>Sign in</span>
+                <ArrowRight size={16} />
+              </>
+            )}
           </button>
+        </form>
 
-          {/* Quick Demo Logins */}
-          {!isRegistering && <div style={{ marginTop: '1.75rem', paddingTop: '1.25rem', borderTop: '1px solid var(--border-color)' }}>
-            <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-              Try a demo account
-            </span>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.5rem', marginTop: '0.65rem' }}>
+        {/* Footer switch */}
+        <div className="human-login-footer">
+          {isRegistering ? (
+            <p>
+              Already have an account?{' '}
               <button
                 type="button"
-                onClick={() => handleQuickLogin('customer1', 'DemoPass123!')}
-                className="btn btn-sm btn-outline"
-                style={{ justifyContent: 'flex-start' }}
+                className="human-link"
+                onClick={() => {
+                  setIsRegistering(false);
+                  setError('');
+                  setSuccess('');
+                }}
               >
-                <UserCheck size={14} color="var(--accent)" />
-                <span>Customer 1</span>
+                Sign in
               </button>
+            </p>
+          ) : (
+            <p>
+              New here?{' '}
               <button
                 type="button"
-                onClick={() => handleQuickLogin('customer2', 'DemoPass123!')}
-                className="btn btn-sm btn-outline"
-                style={{ justifyContent: 'flex-start' }}
+                className="human-link"
+                onClick={() => {
+                  setIsRegistering(true);
+                  setError('');
+                  setSuccess('');
+                }}
               >
-                <UserCheck size={14} color="var(--accent)" />
-                <span>Customer 2</span>
+                Create an account
               </button>
-              <button
-                type="button"
-                onClick={() => handleQuickLogin('merchant', 'DemoPass123!')}
-                className="btn btn-sm btn-outline"
-                style={{ justifyContent: 'flex-start' }}
-              >
-                <Key size={14} color="var(--success)" />
-                <span>Merchant</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => handleQuickLogin('analyst', 'DemoPass123!')}
-                className="btn btn-sm btn-outline"
-                style={{ justifyContent: 'flex-start' }}
-              >
-                <ShieldCheck size={14} color="var(--danger)" />
-                <span>Analyst</span>
-              </button>
-            </div>
-          </div>}
-        </div>
-
-        <div style={{ textAlign: 'center', fontSize: '0.8rem', color: 'var(--text-light)' }}>
-          Demo password for every account: <code className="font-mono">DemoPass123!</code>
+            </p>
+          )}
         </div>
       </div>
     </div>
   );
 }
+
+export default Login;

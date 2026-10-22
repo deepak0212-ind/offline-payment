@@ -1,16 +1,28 @@
 import React, { useState } from 'react';
 import { useDevice } from '../context/DeviceContext';
 import { useNetwork } from '../context/NetworkContext';
-import { Smartphone, ShieldCheck, Key, CheckCircle, RefreshCw, AlertTriangle } from 'lucide-react';
+import {
+  Smartphone,
+  ShieldCheck,
+  Key,
+  CheckCircle,
+  RefreshCw,
+  AlertTriangle,
+  Cpu,
+  Copy,
+  Check,
+  Shield,
+} from 'lucide-react';
 import { ErrorMessage } from '../components/UIComponents';
 
 export function DeviceRegistration() {
   const { device, isRegistered, registerDevice, loading } = useDevice();
   const { isOnline } = useNetwork();
-  const [deviceName, setDeviceName] = useState('Browser Chrome Device');
+  const [deviceName, setDeviceName] = useState('Browser Secure Enclave');
   const [registering, setRegistering] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
+  const [copiedKey, setCopiedKey] = useState(false);
 
   const handleRegister = async (e) => {
     e.preventDefault();
@@ -19,7 +31,7 @@ export function DeviceRegistration() {
     setErrorMsg('');
     try {
       const dev = await registerDevice(deviceName);
-      setSuccessMsg(`Device registered successfully with ID: ${dev.device_id}`);
+      setSuccessMsg(`Device registered successfully! Armed ID: ${dev.device_id}`);
     } catch (err) {
       console.error(err);
       setErrorMsg(err.message || 'Device registration failed.');
@@ -28,138 +40,232 @@ export function DeviceRegistration() {
     }
   };
 
+  const handleCopyKey = () => {
+    if (device?.public_key_spki) {
+      navigator.clipboard.writeText(device.public_key_spki);
+      setCopiedKey(true);
+      setTimeout(() => setCopiedKey(false), 2500);
+    }
+  };
+
   return (
     <div className="page-container">
-      <div style={{ marginBottom: '1.75rem' }}>
-        <h1>Device Registration & Web Crypto Keys</h1>
-        <p>Generate cryptographic key pairs in the browser using the Web Crypto API.</p>
+      {/* Title Header */}
+      <div className="page-title-group">
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
+          <div>
+            <p className="eyebrow">HARDWARE & WEB CRYPTO SUBSYSTEM</p>
+            <h1>
+              <Smartphone size={28} style={{ color: 'var(--accent)' }} />
+              <span>Browser Enclave & Keypairs</span>
+            </h1>
+            <p>Generate non-extractable ECDSA P-256 asymmetric cryptographic keypairs directly within browser memory.</p>
+          </div>
+
+          <div style={{ display: 'flex', gap: '0.65rem' }}>
+            <span className={`badge ${isRegistered ? 'badge-settled' : 'badge-pending'}`}>
+              <ShieldCheck size={12} />
+              <span>{isRegistered ? 'Enclave Armed (P-256)' : 'Unregistered'}</span>
+            </span>
+          </div>
+        </div>
       </div>
 
       <ErrorMessage error={errorMsg} />
 
       {successMsg && (
-        <div className="alert alert-success" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <CheckCircle size={18} />
+        <div className="alert alert-success" style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+          <CheckCircle size={19} style={{ flexShrink: 0 }} />
           <span>{successMsg}</span>
         </div>
       )}
 
       <div className="grid-2">
-        {/* Device Status & Key Info */}
+        {/* Enclave Status & Keys */}
         <div className="card">
           <div className="card-header">
-            <span className="card-title">Browser Device Identity</span>
-            <Smartphone size={20} color="var(--primary)" />
+            <span className="card-title">
+              <Cpu size={18} style={{ color: 'var(--accent)' }} />
+              <span>Browser Cryptographic Enclave</span>
+            </span>
+            <span className="badge badge-provisional">LOCAL STORAGE</span>
           </div>
 
           {isRegistered && device ? (
             <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.25rem' }}>
                 <span className="badge badge-settled">
                   <CheckCircle size={12} /> Active & Registered
                 </span>
                 <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                  ECDSA P-256 (SHA-256)
+                  Curve: <strong>NIST P-256 (SHA-256)</strong>
                 </span>
               </div>
 
-              <div style={{ marginBottom: '1rem' }}>
-                <label className="form-label">Registered Device ID</label>
-                <div style={{ padding: '0.5rem 0.75rem', backgroundColor: 'var(--bg-subtle)', borderRadius: 'var(--radius-sm)', fontSize: '0.875rem' }} className="font-mono">
+              {/* Device ID Box */}
+              <div className="form-group">
+                <label className="form-label">Registered Device Identity</label>
+                <div
+                  style={{
+                    padding: '0.65rem 0.95rem',
+                    background: 'var(--bg-surface-elevated)',
+                    borderRadius: 'var(--radius-md)',
+                    border: '1px solid var(--border-subtle)',
+                    fontSize: '0.88rem',
+                    color: 'var(--primary)',
+                  }}
+                  className="font-mono"
+                >
                   {device.device_id}
                 </div>
               </div>
 
-              <div style={{ marginBottom: '1rem' }}>
-                <label className="form-label">Current Strict Counter</label>
-                <div style={{ padding: '0.5rem 0.75rem', backgroundColor: 'var(--bg-subtle)', borderRadius: 'var(--radius-sm)', fontSize: '0.875rem' }}>
-                  <strong>{device.counter || 0}</strong> (Increments strictly on every signed payment)
+              {/* Strict Monotonic Counter Display */}
+              <div className="form-group">
+                <label className="form-label">Strict Monotonic Counter Sequence</label>
+                <div
+                  style={{
+                    padding: '0.85rem 1rem',
+                    background: 'rgba(99, 102, 241, 0.1)',
+                    borderRadius: 'var(--radius-md)',
+                    border: '1px solid rgba(99, 102, 241, 0.3)',
+                    fontSize: '0.9rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                  }}
+                >
+                  <span style={{ color: 'var(--text-secondary)' }}>Current State:</span>
+                  <span style={{ fontSize: '1.2rem', fontWeight: 800, color: '#ffffff' }}>
+                    #{device.counter || 0}
+                  </span>
+                </div>
+                <div className="form-helper">
+                  Strictly increments by +1 for every signed payment to prevent duplicate attacks.
                 </div>
               </div>
 
-              <div style={{ marginBottom: '1rem' }}>
-                <label className="form-label">Device Public Key (SPKI Base64)</label>
+              {/* Public Key SPKI Card */}
+              <div className="form-group">
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
+                  <label className="form-label" style={{ marginBottom: 0 }}>
+                    Device Public Key (SPKI Base64)
+                  </label>
+                  <button
+                    type="button"
+                    onClick={handleCopyKey}
+                    className="btn btn-sm btn-outline"
+                    style={{ gap: '0.4rem' }}
+                  >
+                    {copiedKey ? <Check size={13} style={{ color: 'var(--success)' }} /> : <Copy size={13} />}
+                    <span>{copiedKey ? 'Copied' : 'Copy Key'}</span>
+                  </button>
+                </div>
                 <textarea
                   className="form-control font-mono"
                   rows={4}
                   value={device.public_key_spki || ''}
                   readOnly
-                  style={{ fontSize: '0.75rem', resize: 'none' }}
+                  style={{ fontSize: '0.74rem', resize: 'none' }}
                 />
                 <div className="form-helper">
-                  Shared with the server and offline merchants to verify your digital signatures.
+                  Shared with offline merchant terminals and the bank gateway to verify signatures.
                 </div>
               </div>
 
-              <div style={{ marginBottom: '1.25rem' }}>
-                <label className="form-label">Private Key Status</label>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--success)', fontSize: '0.875rem', fontWeight: 600 }}>
-                  <ShieldCheck size={18} />
-                  <span>Held strictly in browser IndexedDB (Never exported or transmitted)</span>
-                </div>
+              {/* Private Key Isolation Guarantee */}
+              <div
+                style={{
+                  padding: '0.9rem 1.1rem',
+                  background: 'rgba(16, 185, 129, 0.08)',
+                  border: '1px solid rgba(16, 185, 129, 0.25)',
+                  borderRadius: 'var(--radius-md)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.75rem',
+                  color: '#a7f3d0',
+                  fontSize: '0.84rem',
+                }}
+              >
+                <ShieldCheck size={22} style={{ flexShrink: 0, color: 'var(--success)' }} />
+                <span>
+                  <strong>Non-Extractable Private Key:</strong> Stored securely in IndexedDB crypto storage. Never transmitted over the network.
+                </span>
               </div>
             </div>
           ) : (
-            <div style={{ textAlign: 'center', padding: '2rem 1rem' }}>
-              <AlertTriangle size={36} color="var(--warning)" style={{ marginBottom: '1rem' }} />
-              <h3>No Keypair Registered</h3>
-              <p style={{ fontSize: '0.875rem', marginTop: '0.5rem' }}>
-                This browser does not yet have an active cryptographic device identity. Generate a new keypair below.
+            <div style={{ textAlign: 'center', padding: '3.5rem 1rem' }}>
+              <AlertTriangle size={42} style={{ color: 'var(--warning)', marginBottom: '1rem' }} />
+              <h3 style={{ marginBottom: '0.4rem' }}>No Cryptographic Keypair Found</h3>
+              <p style={{ fontSize: '0.88rem', color: 'var(--text-secondary)', maxWidth: '340px', margin: '0 auto' }}>
+                This browser has not yet initialized its hardware/software keypair. Generate one below to begin.
               </p>
             </div>
           )}
         </div>
 
-        {/* Generate / Re-generate Keypair Form */}
+        {/* Generate / Re-generate Keypair Card */}
         <div className="card">
           <div className="card-header">
             <span className="card-title">
-              {isRegistered ? 'Rotate / Re-generate Keypair' : 'Register New Device Key'}
+              <Key size={18} style={{ color: 'var(--primary)' }} />
+              <span>{isRegistered ? 'Rotate Device Keypair' : 'Arm New Device Key'}</span>
             </span>
-            <Key size={20} color="var(--accent)" />
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>ENCLAVE SETUP</span>
           </div>
 
           <form onSubmit={handleRegister}>
             <div className="form-group">
-              <label className="form-label">Device Label / Name</label>
+              <label className="form-label">Device Label / Friendly Name</label>
               <input
                 type="text"
                 className="form-control"
-                placeholder="e.g. My Laptop Chrome Browser"
+                placeholder="e.g. Work Laptop Chrome"
                 value={deviceName}
                 onChange={(e) => setDeviceName(e.target.value)}
                 required
               />
               <div className="form-helper">
-                Friendly name for identifying this device.
+                Identifier to label this device's public key on the bank server.
               </div>
             </div>
 
-            <div style={{ backgroundColor: 'var(--bg-subtle)', padding: '1rem', borderRadius: 'var(--radius-sm)', marginBottom: '1.25rem', fontSize: '0.85rem' }}>
-              <div style={{ fontWeight: 700, color: 'var(--text-main)', marginBottom: '0.35rem' }}>
-                Cryptographic Protocol Guarantees:
+            <div
+              style={{
+                background: 'var(--bg-surface-elevated)',
+                padding: '1.25rem',
+                borderRadius: 'var(--radius-md)',
+                border: '1px solid var(--border-subtle)',
+                marginBottom: '1.5rem',
+                fontSize: '0.85rem',
+              }}
+            >
+              <div style={{ fontWeight: 700, color: 'var(--text-main)', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <Shield size={16} style={{ color: 'var(--primary)' }} />
+                <span>Device Security Protocol:</span>
               </div>
-              <ul style={{ paddingLeft: '1.25rem', color: 'var(--text-muted)' }}>
-                <li>Generates an asymmetric NIST P-256 elliptic curve key pair in hardware/browser memory.</li>
-                <li>Private key is non-extractable from this machine.</li>
-                <li>Public key is synchronized to the backend to authenticate your offline payments.</li>
+              <ul style={{ paddingLeft: '1.25rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+                <li>Generates an asymmetric NIST P-256 elliptic curve keypair via native Web Crypto.</li>
+                <li>Private key is locked in non-exportable browser IndexedDB memory.</li>
+                <li>Public key is synchronized with bank to verify offline allowance signatures.</li>
               </ul>
             </div>
 
             <button
               type="submit"
-              className="btn btn-primary"
+              className="btn btn-primary btn-lg"
               style={{ width: '100%' }}
               disabled={registering}
             >
               {registering ? (
                 <>
-                  <RefreshCw size={16} className="spin" /> Generating & Registering...
+                  <RefreshCw size={17} className="spin-slow" />
+                  <span>Generating P-256 Keypair...</span>
                 </>
               ) : isRegistered ? (
-                'Re-generate New Device Keypair'
+                'Re-generate & Rotate Keypair'
               ) : (
-                'Generate & Register Device Keypair'
+                'Generate & Arm Keypair'
               )}
             </button>
           </form>
@@ -168,3 +274,5 @@ export function DeviceRegistration() {
     </div>
   );
 }
+
+export default DeviceRegistration;

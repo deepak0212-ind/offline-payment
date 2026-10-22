@@ -10,8 +10,8 @@ import {
   FileQuestion,
   Layers,
   ArrowRight,
-  TrendingDown,
   CheckCircle,
+  Activity,
 } from 'lucide-react';
 
 export function AnalystDashboard() {
@@ -63,110 +63,183 @@ export function AnalystDashboard() {
     loadAnalystStats();
   }, [isOnline]);
 
-  if (loading) return <LoadingSpinner message="Loading analyst intelligence dashboard..." />;
+  if (loading) return <LoadingSpinner message="Scanning fraud telemetry & cryptographic replay anomaly logs..." />;
 
   return (
     <div className="page-container">
-      <div style={{ marginBottom: '1.75rem' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <ShieldAlert size={28} color="var(--danger)" />
-          <h1>Risk & Security Analyst Operations</h1>
+      {/* Title Header */}
+      <div className="page-title-group">
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
+          <div>
+            <p className="eyebrow">RISK & SURVEILLANCE OPERATIONS</p>
+            <h1>
+              <ShieldAlert size={28} style={{ color: 'var(--danger)' }} />
+              <span>Security Operations & Telemetry</span>
+            </h1>
+            <p>Monitor double-spend collisions, counter rollbacks, nonce replay attacks, and adjudicate customer claims.</p>
+          </div>
+
+          <div style={{ display: 'flex', gap: '0.65rem' }}>
+            <span className="badge badge-flagged">
+              <Activity size={12} />
+              <span>Live Threat Guard</span>
+            </span>
+          </div>
         </div>
-        <p>Monitor double-spend anomalies, investigate cryptographic replay attacks, and adjudicate disputes.</p>
       </div>
 
-      {/* KPI Stats Cards */}
-      <div className="grid-3" style={{ marginBottom: '1.75rem' }}>
-        <div className="card" style={{ borderLeft: '4px solid var(--danger)' }}>
+      {/* KPI Stats Grid */}
+      <div className="grid-3" style={{ marginBottom: '2rem' }}>
+        <div
+          className="card"
+          style={{
+            borderLeft: '4px solid var(--danger)',
+            background: 'linear-gradient(135deg, rgba(244, 63, 94, 0.1) 0%, rgba(17, 24, 39, 0.8) 100%)',
+          }}
+        >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
-              <div style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
-                Flagged & Suspicious Claims
-              </div>
-              <div style={{ fontSize: '2rem', fontWeight: 800, color: 'var(--danger)', marginTop: '0.25rem' }}>
+              <span className="eyebrow" style={{ color: '#fb7185' }}>
+                FLAGGED & SUSPICIOUS CLAIMS
+              </span>
+              <div style={{ fontSize: '2.4rem', fontWeight: 800, color: '#fb7185', marginTop: '0.2rem' }}>
                 {stats.flaggedCount}
               </div>
             </div>
-            <AlertOctagon size={28} color="var(--danger)" />
+            <div
+              style={{
+                width: '50px',
+                height: '50px',
+                borderRadius: 'var(--radius-md)',
+                background: 'rgba(244, 63, 94, 0.2)',
+                display: 'grid',
+                placeItems: 'center',
+                color: '#fb7185',
+              }}
+            >
+              <AlertOctagon size={26} />
+            </div>
           </div>
-          <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.5rem' }}>
-            Double-spends, counter reuse, replay nonces
+          <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: '0.65rem' }}>
+            Double-spends, counter decrements, replay nonces
           </div>
         </div>
 
-        <div className="card" style={{ borderLeft: '4px solid var(--warning)' }}>
+        <div
+          className="card"
+          style={{
+            borderLeft: '4px solid var(--warning)',
+            background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.1) 0%, rgba(17, 24, 39, 0.8) 100%)',
+          }}
+        >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
-              <div style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
-                Pending Disputes
-              </div>
-              <div style={{ fontSize: '2rem', fontWeight: 800, color: 'var(--warning)', marginTop: '0.25rem' }}>
+              <span className="eyebrow" style={{ color: '#fbbf24' }}>
+                DISPUTES AWAITING REVIEW
+              </span>
+              <div style={{ fontSize: '2.4rem', fontWeight: 800, color: '#fbbf24', marginTop: '0.2rem' }}>
                 {stats.openDisputes}
               </div>
             </div>
-            <FileQuestion size={28} color="var(--warning)" />
+            <div
+              style={{
+                width: '50px',
+                height: '50px',
+                borderRadius: 'var(--radius-md)',
+                background: 'rgba(245, 158, 11, 0.2)',
+                display: 'grid',
+                placeItems: 'center',
+                color: '#fbbf24',
+              }}
+            >
+              <FileQuestion size={26} />
+            </div>
           </div>
-          <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.5rem' }}>
-            Awaiting forensic adjudication and refund decision
+          <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: '0.65rem' }}>
+            Pending forensic investigation and reversal decisions
           </div>
         </div>
 
-        <div className="card" style={{ borderLeft: '4px solid var(--primary)' }}>
+        <div
+          className="card"
+          style={{
+            borderLeft: '4px solid var(--primary)',
+            background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.1) 0%, rgba(17, 24, 39, 0.8) 100%)',
+          }}
+        >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
-              <div style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
-                System Transactions
-              </div>
-              <div style={{ fontSize: '2rem', fontWeight: 800, color: 'var(--primary)', marginTop: '0.25rem' }}>
+              <span className="eyebrow" style={{ color: '#a5b4fc' }}>
+                NETWORK TRANSACTION LOGS
+              </span>
+              <div style={{ fontSize: '2.4rem', fontWeight: 800, color: '#ffffff', marginTop: '0.2rem' }}>
                 {stats.totalTransactions}
               </div>
             </div>
-            <Layers size={28} color="var(--primary)" />
+            <div
+              style={{
+                width: '50px',
+                height: '50px',
+                borderRadius: 'var(--radius-md)',
+                background: 'rgba(99, 102, 241, 0.2)',
+                display: 'grid',
+                placeItems: 'center',
+                color: '#a5b4fc',
+              }}
+            >
+              <Layers size={26} />
+            </div>
           </div>
-          <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.5rem' }}>
-            Settled, pending, and flagged across all wallets
+          <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: '0.65rem' }}>
+            Settled, offline provisional, and flagged records
           </div>
         </div>
       </div>
 
-      {/* Two Column Section */}
+      {/* Grid: Recent Flags & Configured Risk Tiers */}
       <div className="grid-2">
-        {/* Recent Flagged Transactions */}
+        {/* Flagged Claims Card */}
         <div className="card">
           <div className="card-header">
-            <span className="card-title">Recent Suspicious / Flagged Claims</span>
+            <span className="card-title">
+              <AlertOctagon size={18} style={{ color: 'var(--danger)' }} />
+              <span>Recent Flagged Claims</span>
+            </span>
             <Link to="/analyst/flags" className="btn btn-sm btn-outline">
-              <span>View All</span>
+              <span>Inspect Queue</span>
               <ArrowRight size={14} />
             </Link>
           </div>
 
           {recentFlags.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '2rem 1rem', color: 'var(--text-muted)' }}>
-              <CheckCircle size={32} color="var(--success)" style={{ marginBottom: '0.5rem' }} />
-              <div>No flagged or suspicious transactions detected. System operates with clean integrity.</div>
+            <div style={{ textAlign: 'center', padding: '3rem 1rem', color: 'var(--text-muted)' }}>
+              <CheckCircle size={36} style={{ color: 'var(--success)', marginBottom: '0.6rem' }} />
+              <div style={{ color: '#ffffff', fontWeight: 600 }}>Clean Security Posture</div>
+              <p style={{ fontSize: '0.84rem', marginTop: '0.25rem' }}>
+                No double-spend collisions or signature replay attacks detected.
+              </p>
             </div>
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
               {recentFlags.map((f) => (
                 <div
                   key={f.transaction_id}
                   style={{
-                    padding: '0.75rem',
-                    backgroundColor: 'var(--danger-bg)',
-                    border: '1px solid var(--danger-border)',
-                    borderRadius: 'var(--radius-sm)',
+                    padding: '0.95rem 1.15rem',
+                    background: 'rgba(244, 63, 94, 0.08)',
+                    border: '1px solid rgba(244, 63, 94, 0.3)',
+                    borderRadius: 'var(--radius-md)',
                   }}
                 >
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
-                    <strong className="font-mono" style={{ fontSize: '0.85rem' }}>
+                    <strong className="font-mono" style={{ fontSize: '0.86rem', color: '#ffffff' }}>
                       {f.transaction_id.slice(0, 12)}...
                     </strong>
-                    <span style={{ fontWeight: 700, color: 'var(--danger)' }}>
+                    <span style={{ fontWeight: 800, color: '#fb7185' }}>
                       ₹{(f.amount / 100).toFixed(2)}
                     </span>
                   </div>
-                  <div style={{ fontSize: '0.8rem', color: '#991b1b' }}>
+                  <div style={{ fontSize: '0.82rem', color: '#fecdd3', lineHeight: 1.4 }}>
                     {f.flag_reason}
                   </div>
                 </div>
@@ -175,31 +248,35 @@ export function AnalystDashboard() {
           )}
         </div>
 
-        {/* Configured Risk Tiers Card */}
+        {/* Configured Risk Tiers */}
         <div className="card">
           <div className="card-header">
-            <span className="card-title">Configured Risk Tiers</span>
-            <Layers size={20} color="var(--primary)" />
+            <span className="card-title">
+              <Layers size={18} style={{ color: 'var(--primary)' }} />
+              <span>Configured System Risk Tiers</span>
+            </span>
+            <span className="badge badge-settled">SYSTEM POLICIES</span>
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
             {stats.riskTiers.map((t) => (
               <div
                 key={t.id}
                 style={{
-                  padding: '0.75rem 1rem',
-                  backgroundColor: 'var(--bg-subtle)',
-                  borderRadius: 'var(--radius-sm)',
+                  padding: '1rem 1.25rem',
+                  background: 'var(--bg-surface-elevated)',
+                  borderRadius: 'var(--radius-md)',
+                  border: '1px solid var(--border-subtle)',
                 }}
               >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.25rem' }}>
-                  <strong style={{ color: 'var(--primary)', fontSize: '0.95rem' }}>{t.name}</strong>
-                  <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
+                  <strong style={{ color: 'var(--text-main)', fontSize: '0.96rem' }}>{t.name}</strong>
+                  <span style={{ fontSize: '0.82rem', color: 'var(--primary)', fontWeight: 600 }}>
                     Max Reserve: ₹{(t.max_reserve_amount / 100).toFixed(2)}
                   </span>
                 </div>
-                <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                  Per-Payment Limit: ₹{(t.max_per_payment_limit / 100).toFixed(2)} | {t.description}
+                <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+                  Per-Payment Ceiling: ₹{(t.max_per_payment_limit / 100).toFixed(2)} • {t.description}
                 </div>
               </div>
             ))}
@@ -209,3 +286,5 @@ export function AnalystDashboard() {
     </div>
   );
 }
+
+export default AnalystDashboard;

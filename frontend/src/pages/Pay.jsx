@@ -14,11 +14,10 @@ import {
   Copy,
   Check,
   ShieldCheck,
-  AlertTriangle,
   Lock,
-  Clock,
   Zap,
-  Smartphone,
+  CheckCircle2,
+  Cpu,
 } from 'lucide-react';
 
 export function Pay() {
@@ -43,10 +42,8 @@ export function Pay() {
 
   async function loadCerts() {
     try {
-      // 1. Load from IndexedDB
       let certs = await getAllCertificates();
 
-      // 2. If online, fetch any certificates from server and sync to IndexedDB
       if (isOnline) {
         try {
           const serverRes = await apiService.getCertificates();
@@ -70,7 +67,6 @@ export function Pay() {
 
       setCertificates(certs || []);
       if (certs && certs.length > 0) {
-        // Prefer certificate matching current registered device
         const match = certs.slice().reverse().find((c) => c.payload?.device_id === device?.device_id);
         setSelectedCertId(match ? match.certificate_id : certs[certs.length - 1].certificate_id);
       }
@@ -79,19 +75,16 @@ export function Pay() {
     }
   }
 
-  // 1-Click quick setup helper
   const handleQuickSetup = async () => {
     setQuickSettingUp(true);
     setErrorMsg('');
     setSuccessMsg('');
     try {
       let activeDev = device;
-      // 1. Register device if not registered
       if (!isRegistered || !device) {
         activeDev = await registerDevice('Browser Device');
       }
 
-      // 2. Lock ₹500 (50,000 paise) reserve
       const reserveRes = await apiService.createReserve(50000, activeDev.device_id);
       const createdReserve = reserveRes.data;
       const cert = createdReserve.certificate;
@@ -106,7 +99,7 @@ export function Pay() {
         });
       }
 
-      setSuccessMsg('Quick setup complete! Generated device key and issued signed ₹500 allowance certificate.');
+      setSuccessMsg('Setup complete! Created browser key and issued signed ₹500 allowance certificate.');
       await loadCerts();
     } catch (err) {
       console.error('Quick setup error:', err);
@@ -117,9 +110,13 @@ export function Pay() {
   };
 
   const activeCert = certificates.find((c) => c.certificate_id === selectedCertId);
-  const maxPerPayment = activeCert ? (activeCert.payload?.max_per_payment || 0) : 0;
-  const reserveAmount = activeCert ? (activeCert.payload?.reserve_amount || 0) : 0;
+  const maxPerPayment = activeCert ? activeCert.payload?.max_per_payment || 0 : 0;
+  const reserveAmount = activeCert ? activeCert.payload?.reserve_amount || 0 : 0;
   const isDeviceMatch = Boolean(activeCert && device && activeCert.payload?.device_id === device.device_id);
+
+  const handlePresetAmount = (inr) => {
+    setAmountInput(String(inr));
+  };
 
   const handleGeneratePayment = async (e) => {
     e.preventDefault();
@@ -129,19 +126,18 @@ export function Pay() {
     setCopied(false);
 
     if (!isRegistered || !device || !device.keyPair?.privateKey) {
-      setErrorMsg('No active device private key available in this browser to sign the payment. Register your device key first.');
+      setErrorMsg('No active device private key found in this browser. Please register your device key first.');
       return;
     }
 
     if (!activeCert) {
-      setErrorMsg('Please select a valid offline allowance certificate. If none exist, click Quick Setup or go to Wallet & Reserve.');
+      setErrorMsg('Please select a valid offline allowance certificate or use 1-Click Setup.');
       return;
     }
 
-    // Check device binding
     if (activeCert.payload?.device_id && activeCert.payload.device_id !== device.device_id) {
       setErrorMsg(
-        `Device Mismatch: The selected certificate was issued to device "${activeCert.payload.device_id}", but your active browser device is "${device.device_id}". Please click ⚡ 1-Click Setup or go to Wallet to lock a reserve for this device.`
+        `Device Mismatch: Selected certificate belongs to device "${activeCert.payload.device_id}". Use 1-Click Setup to create a certificate bound to this active browser.`
       );
       return;
     }
@@ -154,34 +150,29 @@ export function Pay() {
 
     const amountPaise = Math.round(inr * 100);
 
-    // Limit enforcement
     if (amountPaise > maxPerPayment) {
       setErrorMsg(
-        `Amount ₹${inr.toFixed(2)} exceeds maximum per-payment limit of ₹${(maxPerPayment / 100).toFixed(2)} specified in certificate.`
+        `Amount ₹${inr.toFixed(2)} exceeds maximum per-payment limit of ₹${(maxPerPayment / 100).toFixed(2)} in this certificate.`
       );
       return;
     }
 
-    // Check certificate expiry
     try {
       const expiresAt = new Date(activeCert.payload.expires_at);
       if (new Date() > expiresAt) {
-        setErrorMsg('Selected allowance certificate has expired. Please create a fresh reserve online.');
+        setErrorMsg('Selected allowance certificate has expired. Please create a new reserve online.');
         return;
       }
     } catch (e) {
-      // Ignore
+      // ignore
     }
 
     setLoading(true);
     try {
-      // 1. Get next strictly incrementing counter for this device
       const counter = await getNextCounter(device.device_id);
-
       const now = new Date();
-      const expires = new Date(now.getTime() + 2 * 60 * 60 * 1000); // 2 hours validity
+      const expires = new Date(now.getTime() + 2 * 60 * 60 * 1000);
 
-      // 2. Construct canonical payment token payload
       const token_payload = {
         transaction_id: crypto.randomUUID(),
         certificate_id: activeCert.certificate_id,
@@ -195,10 +186,8 @@ export function Pay() {
         expires_at: expires.toISOString(),
       };
 
-      // 3. Digitally sign canonical token payload using device private key
       const token_signature = await signPayload(device.keyPair.privateKey, token_payload);
 
-      // 4. Create complete token bundle
       const tokenBundle = {
         token_payload,
         token_signature,
@@ -209,7 +198,6 @@ export function Pay() {
         },
       };
 
-      // 5. Store pending transaction in IndexedDB sync queue
       await addToSyncQueue({
         transaction_id: token_payload.transaction_id,
         token_payload,
@@ -221,7 +209,7 @@ export function Pay() {
       });
 
       setGeneratedToken(tokenBundle);
-      setSuccessMsg('Offline payment token successfully signed and stored locally!');
+      setSuccessMsg('Offline payment token signed with ECDSA P-256 and queued locally!');
     } catch (err) {
       console.error('Payment generation error:', err);
       setErrorMsg(err.message || 'Failed to sign payment token.');
@@ -242,48 +230,73 @@ export function Pay() {
 
   return (
     <div className="page-container">
-      <div style={{ marginBottom: '1.75rem' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <h1>Pay Offline</h1>
-          {!isOnline && <span className="badge badge-pending">Offline Ready</span>}
+      {/* Title Header */}
+      <div className="page-title-group">
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
+          <div>
+            <p className="eyebrow">OFFLINE PAYMENT DISPATCH</p>
+            <h1>
+              <ArrowUpRight size={28} style={{ color: 'var(--accent)' }} />
+              <span>Create Offline Payment</span>
+            </h1>
+            <p>Generate cryptographically signed payment tokens that transfer securely without internet access.</p>
+          </div>
+
+          <div style={{ display: 'flex', gap: '0.65rem', alignItems: 'center' }}>
+            <span className="badge badge-provisional">
+              <Cpu size={12} />
+              <span>P-256 Hardware Enclave</span>
+            </span>
+            <span className={`badge ${isOnline ? 'badge-settled' : 'badge-pending'}`}>
+              {isOnline ? 'Gateway Linked' : 'Air-Gapped Mode'}
+            </span>
+          </div>
         </div>
-        <p>
-          Generate a cryptographically signed payment token without needing an internet connection.
-        </p>
       </div>
 
       <ErrorMessage error={errorMsg} />
 
       {successMsg && (
-        <div className="alert alert-success" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <ShieldCheck size={18} />
+        <div className="alert alert-success" style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+          <ShieldCheck size={20} style={{ flexShrink: 0 }} />
           <span>{successMsg}</span>
         </div>
       )}
 
-      {/* Guide Banner if no certificate is ready */}
+      {/* Guide & Setup Banner */}
       {certificates.length === 0 && (
         <div
           className="card"
           style={{
-            marginBottom: '1.75rem',
-            backgroundColor: '#eff6ff',
-            border: '1px solid #bfdbfe',
+            marginBottom: '2rem',
+            border: '1px solid var(--border-glow-indigo)',
+            background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.15) 0%, rgba(17, 24, 39, 0.85) 100%)',
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
-            <div style={{ display: 'flex', gap: '0.75rem' }}>
-              <Zap size={24} color="var(--accent)" style={{ flexShrink: 0, marginTop: '2px' }} />
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1.25rem' }}>
+            <div style={{ display: 'flex', gap: '1rem' }}>
+              <div
+                style={{
+                  width: '46px',
+                  height: '46px',
+                  borderRadius: 'var(--radius-md)',
+                  background: 'rgba(99, 102, 241, 0.25)',
+                  display: 'grid',
+                  placeItems: 'center',
+                  color: '#a5b4fc',
+                  flexShrink: 0,
+                }}
+              >
+                <Zap size={24} />
+              </div>
               <div>
-                <h3 style={{ color: 'var(--primary)', marginBottom: '0.25rem' }}>
-                  Offline Allowance Required
-                </h3>
-                <p style={{ fontSize: '0.875rem', color: '#1e3a8a', marginBottom: '0.5rem' }}>
-                  To pay offline, your device requires an <strong>Allowance Certificate</strong> issued by the bank that pre-authorizes offline spending against your wallet reserve.
+                <h3 style={{ color: '#ffffff', marginBottom: '0.35rem' }}>Allowance Certificate Required</h3>
+                <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', maxWidth: '580px', marginBottom: '0.5rem' }}>
+                  To pay while disconnected, your browser needs a <strong>bank-signed Allowance Certificate</strong> that pre-reserves spending power against your account.
                 </p>
-                <div style={{ fontSize: '0.8rem', color: '#3b82f6' }}>
-                  {!isRegistered && '• Register your browser device key\n'}
-                  • Lock funds into an offline reserve
+                <div style={{ fontSize: '0.82rem', color: '#93c5fd', display: 'flex', gap: '1.5rem' }}>
+                  <span>✓ Creates Web Crypto Key</span>
+                  <span>✓ Issues ₹500 Allowance Certificate</span>
                 </div>
               </div>
             </div>
@@ -297,36 +310,48 @@ export function Pay() {
                   disabled={quickSettingUp}
                 >
                   <Zap size={16} />
-                  <span>{quickSettingUp ? 'Setting Up...' : '⚡ 1-Click Setup (Register Key & Lock ₹500)'}</span>
+                  <span>{quickSettingUp ? 'Arming Device...' : '1-Click Fast Setup (₹500 Reserve)'}</span>
                 </button>
               ) : (
-                <div style={{ color: 'var(--warning)', fontSize: '0.85rem', fontWeight: 600 }}>
-                  Reconnect online to create a reserve
-                </div>
+                <div className="badge badge-pending">Reconnect to create reserve</div>
               )}
               <Link to="/wallet" className="btn btn-outline">
-                <Lock size={16} /> Custom Reserve
+                <Lock size={15} />
+                <span>Custom Reserve</span>
               </Link>
             </div>
           </div>
         </div>
       )}
 
+      {/* Main Grid: Payment Builder & QR/Token Output */}
       <div className="grid-2">
-        {/* Payment Creation Form */}
+        {/* Payment Builder Card */}
         <div className="card">
           <div className="card-header">
-            <span className="card-title">Create Offline Payment</span>
-            <ArrowUpRight size={20} color="var(--primary)" />
+            <span className="card-title">
+              <Lock size={18} style={{ color: 'var(--accent)' }} />
+              <span>Payment Details</span>
+            </span>
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>STEP 1 OF 2</span>
           </div>
 
           <form onSubmit={handleGeneratePayment}>
-            {/* Select Certificate */}
+            {/* Allowance Certificate Selector */}
             <div className="form-group">
               <label className="form-label">Allowance Certificate</label>
               {certificates.length === 0 ? (
-                <div style={{ padding: '0.75rem', backgroundColor: 'var(--bg-subtle)', borderRadius: 'var(--radius-sm)', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
-                  No active certificate in local storage. Click the 1-Click Setup button above to create one.
+                <div
+                  style={{
+                    padding: '0.85rem 1rem',
+                    background: 'rgba(255, 255, 255, 0.03)',
+                    borderRadius: 'var(--radius-md)',
+                    color: 'var(--text-muted)',
+                    fontSize: '0.86rem',
+                    border: '1px dashed var(--border-medium)',
+                  }}
+                >
+                  No active certificate in local IndexedDB. Use 1-Click Fast Setup above to create one.
                 </div>
               ) : (
                 <select
@@ -339,134 +364,262 @@ export function Pay() {
                     const isDev = Boolean(device && c.payload?.device_id === device.device_id);
                     return (
                       <option key={c.certificate_id} value={c.certificate_id}>
-                        {isDev ? '✓ [Current Device] ' : '⚠ [Different Device] '}
+                        {isDev ? '✓ [Bound to This Browser] ' : '⚠ [Other Device] '}
                         Cert {c.certificate_id.slice(0, 8)}... (Max ₹{((c.payload?.max_per_payment || 0) / 100).toFixed(2)}/tx)
                       </option>
                     );
                   })}
                 </select>
               )}
+
               {activeCert && (
-                <div className="form-helper" style={{ color: isDeviceMatch ? 'inherit' : 'var(--danger)' }}>
+                <div
+                  className="form-helper"
+                  style={{
+                    color: isDeviceMatch ? 'var(--text-secondary)' : '#fb7185',
+                    marginTop: '0.5rem',
+                  }}
+                >
                   {isDeviceMatch ? (
-                    <>Certificate bound to this device. Limit: ₹{(maxPerPayment / 100).toFixed(2)} / payment | Reserve: ₹{(reserveAmount / 100).toFixed(2)}</>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                      <CheckCircle2 size={13} style={{ color: 'var(--success)' }} />
+                      <span>
+                        Valid certificate • Max per payment: <strong>₹{(maxPerPayment / 100).toFixed(2)}</strong> • Total Reserve: <strong>₹{(reserveAmount / 100).toFixed(2)}</strong>
+                      </span>
+                    </span>
                   ) : (
-                    <>⚠ Warning: This certificate was issued to device <code>{activeCert.payload?.device_id || 'unknown'}</code>. Use ⚡ 1-Click Setup to lock a reserve for your current device.</>
+                    <span>
+                      ⚠ Warning: Issued to device {activeCert.payload?.device_id}. Use 1-Click Setup to bind to this browser.
+                    </span>
                   )}
                 </div>
               )}
             </div>
 
-            {/* Merchant ID */}
+            {/* Payee / Merchant Input */}
             <div className="form-group">
-              <label className="form-label">Merchant / Payee ID</label>
+              <label className="form-label">Merchant / Recipient ID</label>
               <input
                 type="text"
                 className="form-control"
-                placeholder="e.g. merchant or user ID"
+                placeholder="e.g. merchant or username"
                 value={payeeId}
                 onChange={(e) => setPayeeId(e.target.value)}
                 required
               />
               <div className="form-helper">
-                The payment token will be cryptographically bound to this payee.
+                The cryptographic signature locks the transaction exclusively to this payee to prevent interception.
               </div>
             </div>
 
-            {/* Payment Amount */}
+            {/* Amount Input with Quick Presets */}
             <div className="form-group">
-              <label className="form-label">Payment Amount in INR (₹)</label>
-              <input
-                type="number"
-                step="0.01"
-                min="0.5"
-                max={maxPerPayment ? maxPerPayment / 100 : undefined}
-                className="form-control"
-                placeholder="e.g. 150"
-                value={amountInput}
-                onChange={(e) => setAmountInput(e.target.value)}
-                required
-              />
-              <div className="form-helper">
-                {amountInput && !isNaN(parseFloat(amountInput))
-                  ? `Equivalent to ${(parseFloat(amountInput) * 100).toLocaleString()} paise`
-                  : `Max permitted for this payment: ₹${(maxPerPayment / 100).toFixed(2)}`}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                <label className="form-label" style={{ marginBottom: 0 }}>
+                  Amount in INR (₹)
+                </label>
+                {maxPerPayment > 0 && (
+                  <span style={{ fontSize: '0.74rem', color: 'var(--accent)' }}>
+                    Max: ₹{(maxPerPayment / 100).toFixed(2)}
+                  </span>
+                )}
+              </div>
+
+              <div style={{ position: 'relative' }}>
+                <span
+                  style={{
+                    position: 'absolute',
+                    left: '1rem',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    fontSize: '1.25rem',
+                    fontWeight: 700,
+                    color: 'var(--text-muted)',
+                  }}
+                >
+                  ₹
+                </span>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0.5"
+                  max={maxPerPayment ? maxPerPayment / 100 : undefined}
+                  className="form-control"
+                  placeholder="0.00"
+                  value={amountInput}
+                  onChange={(e) => setAmountInput(e.target.value)}
+                  style={{ paddingLeft: '2.4rem', fontSize: '1.2rem', fontWeight: 700 }}
+                  required
+                />
+              </div>
+
+              {/* Quick Preset Amount Buttons */}
+              <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.65rem', flexWrap: 'wrap' }}>
+                {[50, 100, 200, 500, 1000].map((preset) => (
+                  <button
+                    key={preset}
+                    type="button"
+                    onClick={() => handlePresetAmount(preset)}
+                    className="btn btn-sm btn-outline"
+                    style={{
+                      padding: '0.25rem 0.65rem',
+                      fontSize: '0.78rem',
+                      background: amountInput === String(preset) ? 'rgba(99, 102, 241, 0.25)' : 'transparent',
+                      borderColor: amountInput === String(preset) ? 'var(--primary)' : 'var(--border-subtle)',
+                    }}
+                  >
+                    +₹{preset}
+                  </button>
+                ))}
               </div>
             </div>
 
             <button
               type="submit"
-              className="btn btn-primary"
-              style={{ width: '100%', marginTop: '0.5rem' }}
+              className="btn btn-primary btn-lg"
+              style={{ width: '100%', marginTop: '0.75rem' }}
               disabled={loading || certificates.length === 0 || !isRegistered}
             >
-              {loading ? 'Signing Token Locally...' : 'Sign Offline Payment Token'}
+              {loading ? (
+                <span>Signing with ECDSA P-256...</span>
+              ) : (
+                <>
+                  <Lock size={18} />
+                  <span>Sign & Generate Offline Token</span>
+                </>
+              )}
             </button>
           </form>
         </div>
 
-        {/* Generated Token & QR Display */}
+        {/* QR Code & Token Output Display Card */}
         <div className="card">
           <div className="card-header">
-            <span className="card-title">Payment Token & QR Code</span>
-            <QrCode size={20} color="var(--accent)" />
+            <span className="card-title">
+              <QrCode size={18} style={{ color: 'var(--accent)' }} />
+              <span>Offline Token & QR Code</span>
+            </span>
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>STEP 2 OF 2</span>
           </div>
 
           {generatedToken ? (
             <div>
-              <div style={{ textAlign: 'center', padding: '1rem', backgroundColor: '#ffffff', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-color)', marginBottom: '1.25rem' }}>
+              {/* QR Code Presentation Box */}
+              <div
+                style={{
+                  textAlign: 'center',
+                  padding: '1.5rem',
+                  background: '#ffffff',
+                  borderRadius: 'var(--radius-lg)',
+                  boxShadow: '0 8px 30px rgba(0, 0, 0, 0.5)',
+                  marginBottom: '1.5rem',
+                  position: 'relative',
+                  border: '2px solid rgba(6, 182, 212, 0.4)',
+                }}
+              >
                 <QRCodeSVG
                   value={tokenString}
-                  size={190}
+                  size={200}
                   level="M"
                   includeMargin={true}
                 />
-                <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.5rem' }}>
-                  Present this QR to the merchant or copy the token text below
+                <div style={{ fontSize: '0.8rem', color: '#1e293b', fontWeight: 700, marginTop: '0.5rem' }}>
+                  Scan with Merchant Terminal or Copy Token Below
                 </div>
               </div>
 
-              <div style={{ marginBottom: '1rem' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
-                  <label className="form-label" style={{ marginBottom: 0 }}>
-                    Signed Token Bundle (JSON)
-                  </label>
-                  <button onClick={handleCopy} className="btn btn-sm btn-outline">
-                    {copied ? <Check size={14} color="var(--success)" /> : <Copy size={14} />}
-                    <span>{copied ? 'Copied!' : 'Copy Token'}</span>
-                  </button>
+              {/* Token Details & Telemetry */}
+              <div
+                style={{
+                  background: 'var(--bg-surface-elevated)',
+                  padding: '1rem 1.25rem',
+                  borderRadius: 'var(--radius-md)',
+                  border: '1px solid var(--border-subtle)',
+                  marginBottom: '1.25rem',
+                  fontSize: '0.84rem',
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.45rem' }}>
+                  <span style={{ color: 'var(--text-muted)' }}>Transaction Reference:</span>
+                  <span className="font-mono" style={{ color: 'var(--accent)', fontWeight: 600 }}>
+                    {generatedToken.token_payload.transaction_id.slice(0, 12)}...
+                  </span>
                 </div>
-                <textarea
-                  className="form-control font-mono"
-                  rows={5}
-                  value={tokenString}
-                  readOnly
-                  style={{ fontSize: '0.75rem', resize: 'none' }}
-                />
-              </div>
 
-              <div style={{ backgroundColor: 'var(--bg-subtle)', padding: '0.75rem 1rem', borderRadius: 'var(--radius-sm)', fontSize: '0.8rem' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem' }}>
-                  <span>Transaction ID:</span>
-                  <span className="font-mono">{generatedToken.token_payload.transaction_id.slice(0, 10)}...</span>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.45rem' }}>
+                  <span style={{ color: 'var(--text-muted)' }}>Strict Monotonic Counter:</span>
+                  <strong style={{ color: '#ffffff' }}>#{generatedToken.token_payload.counter}</strong>
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem' }}>
-                  <span>Counter:</span>
-                  <strong>#{generatedToken.token_payload.counter}</strong>
+
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.45rem' }}>
+                  <span style={{ color: 'var(--text-muted)' }}>Authorized Amount:</span>
+                  <strong style={{ color: '#34d399', fontSize: '1rem' }}>
+                    ₹{(generatedToken.token_payload.amount / 100).toFixed(2)}
+                  </strong>
                 </div>
+
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span>Amount:</span>
-                  <strong>₹{(generatedToken.token_payload.amount / 100).toFixed(2)}</strong>
+                  <span style={{ color: 'var(--text-muted)' }}>ECDSA P-256 Digest:</span>
+                  <span className="font-mono" style={{ fontSize: '0.72rem', color: 'var(--text-dim)' }}>
+                    {generatedToken.token_signature.slice(0, 16)}...
+                  </span>
                 </div>
               </div>
+
+              {/* Copy Token Button & Raw JSON View */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
+                <span style={{ fontSize: '0.76rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                  Signed Token Bundle (JSON)
+                </span>
+                <button
+                  type="button"
+                  onClick={handleCopy}
+                  className="btn btn-sm btn-outline"
+                  style={{ gap: '0.45rem' }}
+                >
+                  {copied ? <Check size={14} style={{ color: 'var(--success)' }} /> : <Copy size={14} />}
+                  <span>{copied ? 'Copied Bundle!' : 'Copy Bundle'}</span>
+                </button>
+              </div>
+
+              <textarea
+                className="form-control font-mono"
+                rows={4}
+                value={tokenString}
+                readOnly
+                style={{ fontSize: '0.74rem', resize: 'none' }}
+              />
             </div>
           ) : (
-            <div style={{ textAlign: 'center', padding: '3.5rem 1rem', color: 'var(--text-muted)' }}>
-              <QrCode size={48} style={{ opacity: 0.3, marginBottom: '1rem' }} />
-              <div>Fill out the payment details on the left and click <strong>"Sign Offline Payment Token"</strong>.</div>
-              <div style={{ fontSize: '0.8rem', marginTop: '0.5rem' }}>
-                The QR code and copyable token bundle will appear here.
+            <div
+              style={{
+                textAlign: 'center',
+                padding: '4rem 1.5rem',
+                color: 'var(--text-muted)',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: '0.85rem',
+              }}
+            >
+              <div
+                style={{
+                  width: '64px',
+                  height: '64px',
+                  borderRadius: '50%',
+                  background: 'rgba(255, 255, 255, 0.03)',
+                  display: 'grid',
+                  placeItems: 'center',
+                  color: 'var(--text-dim)',
+                  border: '1px dashed var(--border-medium)',
+                }}
+              >
+                <QrCode size={32} />
               </div>
+              <strong style={{ color: 'var(--text-secondary)', fontSize: '1rem' }}>Awaiting Payment Parameters</strong>
+              <p style={{ maxWidth: '320px', fontSize: '0.84rem' }}>
+                Select your allowance certificate, specify amount, and click "Sign & Generate Offline Token".
+              </p>
             </div>
           )}
         </div>
@@ -474,3 +627,5 @@ export function Pay() {
     </div>
   );
 }
+
+export default Pay;

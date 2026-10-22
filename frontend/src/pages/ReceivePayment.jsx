@@ -16,10 +16,9 @@ import {
   CheckCircle,
   XCircle,
   ShieldCheck,
-  AlertTriangle,
   Receipt,
-  Clock,
   Key,
+  Cpu,
 } from 'lucide-react';
 
 export function ReceivePayment() {
@@ -43,7 +42,7 @@ export function ReceivePayment() {
     }
 
     if (!isRegistered || !device || !device.keyPair?.privateKey) {
-      setErrorMsg('Merchant device key not registered in this browser. Please register in "Device Key" first to sign receipts.');
+      setErrorMsg('Merchant device key not registered in this browser. Please register in "Browser Device Key" first to sign receipts.');
       return;
     }
 
@@ -71,7 +70,6 @@ export function ReceivePayment() {
       if (bankSpki && certificate.signature && certificate.payload) {
         bankSigValid = await verifySignature(bankSpki, certificate.payload, certificate.signature);
       } else {
-        // Fallback or warning if bank key missing in cache
         console.warn('Bank public key not found in cache.');
       }
 
@@ -106,7 +104,7 @@ export function ReceivePayment() {
         tokenNotExpired = false;
       }
       checks.push({
-        title: 'Payment Token Expiration',
+        title: 'Payment Token Expiration Window',
         passed: tokenNotExpired,
         detail: tokenNotExpired ? 'Token is within validity period' : 'Payment token has expired',
       });
@@ -114,7 +112,7 @@ export function ReceivePayment() {
       // CHECK 4: Positive Amount
       const isPositive = token_payload.amount > 0;
       checks.push({
-        title: 'Positive Amount',
+        title: 'Positive Authorized Amount',
         passed: isPositive,
         detail: isPositive ? `Amount is positive (${token_payload.amount} paise)` : 'Amount must be positive',
       });
@@ -123,7 +121,7 @@ export function ReceivePayment() {
       const certLimit = certificate.payload?.max_per_payment || 0;
       const withinLimit = token_payload.amount <= certLimit;
       checks.push({
-        title: 'Per-Payment Certificate Limit',
+        title: 'Certificate Per-Payment Limit',
         passed: withinLimit,
         detail: withinLimit
           ? `₹${(token_payload.amount / 100).toFixed(2)} is within certificate limit of ₹${(certLimit / 100).toFixed(2)}`
@@ -136,20 +134,20 @@ export function ReceivePayment() {
       const tokenPayee = String(token_payload.payee_id || '').toLowerCase();
       const payeeMatches = tokenPayee === myUsername || tokenPayee === myId;
       checks.push({
-        title: 'Payee Merchant Binding',
+        title: 'Payee Merchant Cryptographic Binding',
         passed: payeeMatches,
         detail: payeeMatches
-          ? `Token payee '${token_payload.payee_id}' matches this merchant`
+          ? `Token payee '${token_payload.payee_id}' matches this merchant terminal`
           : `Mismatch: Token payee '${token_payload.payee_id}' does not match your merchant identifier`,
       });
 
       // CHECK 7: Certificate & Payer Device Association
       const deviceMatches = certificate.payload?.device_id === token_payload.payer_device_id;
       checks.push({
-        title: 'Certificate & Device Binding',
+        title: 'Allowance & Device Key Association',
         passed: deviceMatches,
         detail: deviceMatches
-          ? 'Certificate device matches payer device'
+          ? 'Certificate device matches payer device identity'
           : 'Certificate was issued to a different device',
       });
 
@@ -179,7 +177,7 @@ export function ReceivePayment() {
         title: 'Strictly Increasing Counter Sequence',
         passed: counterCheck.valid,
         detail: counterCheck.valid
-          ? `Counter #${token_payload.counter} is strictly higher than previous (${counterCheck.previous_counter})`
+          ? `Counter #${token_payload.counter} is strictly higher than previous sequence (${counterCheck.previous_counter})`
           : counterCheck.message,
       });
 
@@ -187,7 +185,6 @@ export function ReceivePayment() {
       const allPassed = checks.every((c) => c.passed);
 
       if (allPassed) {
-        // Generate Digitally Signed Merchant Receipt
         const tokenHash = await computeSha256Hex(token_payload);
         const acceptedAt = new Date().toISOString();
 
@@ -207,7 +204,6 @@ export function ReceivePayment() {
           receipt_signature: receiptSignature,
         };
 
-        // Store Token & Receipt in IndexedDB for syncing!
         await addToSyncQueue({
           transaction_id: token_payload.transaction_id,
           token_payload,
@@ -219,7 +215,6 @@ export function ReceivePayment() {
           created_at: acceptedAt,
         });
 
-        // Store in merchant receipts store
         await dbPut('merchant_receipts', {
           transaction_id: token_payload.transaction_id,
           receipt: signedReceipt,
@@ -252,32 +247,49 @@ export function ReceivePayment() {
 
   return (
     <div className="page-container">
-      <div style={{ marginBottom: '1.75rem' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <h1>Receive Payment (Merchant POS)</h1>
-          {!isOnline && <span className="badge badge-pending">Offline POS Mode</span>}
+      {/* Title Header */}
+      <div className="page-title-group">
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
+          <div>
+            <p className="eyebrow">MERCHANT POINT-OF-SALE TERMINAL</p>
+            <h1>
+              <ArrowDownLeft size={28} style={{ color: 'var(--success)' }} />
+              <span>Receive & Verify Payment</span>
+            </h1>
+            <p>Execute client-side 10-point cryptographic verification and generate digitally signed receipts offline.</p>
+          </div>
+
+          <div style={{ display: 'flex', gap: '0.65rem', alignItems: 'center' }}>
+            <span className="badge badge-settled">
+              <ShieldCheck size={13} />
+              <span>10-Point Guard Active</span>
+            </span>
+            <span className={`badge ${isOnline ? 'badge-settled' : 'badge-pending'}`}>
+              {isOnline ? 'Bank Gateway Online' : 'Air-Gapped Terminal'}
+            </span>
+          </div>
         </div>
-        <p>
-          Verify offline payment tokens locally and generate digitally signed receipts.
-        </p>
       </div>
 
       <ErrorMessage error={errorMsg} />
 
       <div className="grid-2">
-        {/* Token Input Form */}
+        {/* Token Ingestion Card */}
         <div className="card">
           <div className="card-header">
-            <span className="card-title">Paste Payment Token</span>
-            <ArrowDownLeft size={20} color="var(--primary)" />
+            <span className="card-title">
+              <Key size={18} style={{ color: 'var(--accent)' }} />
+              <span>Token Ingestion</span>
+            </span>
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>INPUT BUNDLE</span>
           </div>
 
           <form onSubmit={handleVerifyAndAccept}>
             <div className="form-group">
-              <label className="form-label">Payment Token Bundle (JSON)</label>
+              <label className="form-label">Customer Payment Token Bundle (JSON)</label>
               <textarea
                 className="form-control font-mono"
-                rows={9}
+                rows={10}
                 placeholder='Paste token JSON bundle from customer ({"token_payload": ...})'
                 value={tokenInput}
                 onChange={(e) => setTokenInput(e.target.value)}
@@ -285,128 +297,191 @@ export function ReceivePayment() {
                 style={{ fontSize: '0.8rem' }}
               />
               <div className="form-helper">
-                Merchant terminal runs full Web Crypto verification locally without contacting the bank server.
+                The terminal performs full mathematical verification of ECDSA P-256 signatures, nonce freshness, and strictly monotonic counters locally.
               </div>
             </div>
 
             <button
               type="submit"
-              className="btn btn-primary"
-              style={{ width: '100%' }}
+              className="btn btn-primary btn-lg"
+              style={{ width: '100%', marginTop: '0.5rem' }}
               disabled={verifying || !tokenInput.trim() || !isRegistered}
             >
-              {verifying ? 'Verifying Cryptography Locally...' : 'Verify & Provisionally Accept'}
+              {verifying ? (
+                <span>Executing 10-Point Verification...</span>
+              ) : (
+                <>
+                  <ShieldCheck size={18} />
+                  <span>Verify & Provisionally Accept</span>
+                </>
+              )}
             </button>
           </form>
         </div>
 
-        {/* Verification Result Display */}
+        {/* Verification Engine Outcome */}
         <div className="card">
           <div className="card-header">
-            <span className="card-title">Verification Outcome</span>
-            <ShieldCheck size={20} color="var(--accent)" />
+            <span className="card-title">
+              <Cpu size={18} style={{ color: 'var(--accent)' }} />
+              <span>Verification Engine Telemetry</span>
+            </span>
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>OUTCOME</span>
           </div>
 
           {result ? (
             <div>
-              {/* Outcome Banner */}
+              {/* Acceptance Banner */}
               {result.status === 'ACCEPTED' ? (
                 <div
                   style={{
-                    backgroundColor: 'var(--success-bg)',
+                    background: 'var(--success-bg)',
                     border: '1px solid var(--success-border)',
-                    borderRadius: 'var(--radius-sm)',
-                    padding: '1rem',
-                    marginBottom: '1.25rem',
+                    borderRadius: 'var(--radius-lg)',
+                    padding: '1.4rem',
+                    marginBottom: '1.4rem',
+                    boxShadow: 'var(--shadow-sm)',
                   }}
                 >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#065f46', marginBottom: '0.4rem' }}>
-                    <CheckCircle size={22} />
-                    <span style={{ fontSize: '1.1rem', fontWeight: 800 }}>
-                      ACCEPTED (PROVISIONAL)
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', color: 'var(--success-text)', marginBottom: '0.4rem' }}>
+                    <CheckCircle size={24} />
+                    <span style={{ fontSize: '1.15rem', fontWeight: 800, letterSpacing: '-0.02em' }}>
+                      PAYMENT ACCEPTED (PROVISIONAL)
                     </span>
                   </div>
-                  <div style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--text-main)', marginBottom: '0.35rem' }}>
+                  <div style={{ fontSize: '2rem', fontWeight: 800, color: 'var(--text-main)', margin: '0.35rem 0' }}>
                     ₹{(result.amount / 100).toFixed(2)}
                   </div>
-                  <p style={{ fontSize: '0.8rem', color: '#065f46', lineHeight: 1.4 }}>
-                    <strong>Notice:</strong> Offline acceptance is provisional. Cryptographic verification confirms token authenticity and local sequence validity, but final settlement occurs upon synchronization with the bank.
+                  <p style={{ fontSize: '0.85rem', color: 'var(--success-text)', lineHeight: 1.5 }}>
+                    Token authenticity, device binding, and counter sequence verified locally. Final bank ledger settlement will occur upon network sync.
                   </p>
                 </div>
               ) : (
                 <div
                   style={{
-                    backgroundColor: 'var(--danger-bg)',
+                    background: 'var(--danger-bg)',
                     border: '1px solid var(--danger-border)',
-                    borderRadius: 'var(--radius-sm)',
-                    padding: '1rem',
-                    marginBottom: '1.25rem',
+                    borderRadius: 'var(--radius-lg)',
+                    padding: '1.4rem',
+                    marginBottom: '1.4rem',
+                    boxShadow: 'var(--shadow-sm)',
                   }}
                 >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#991b1b', marginBottom: '0.4rem' }}>
-                    <XCircle size={22} />
-                    <span style={{ fontSize: '1.1rem', fontWeight: 800 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', color: 'var(--danger-text)', marginBottom: '0.4rem' }}>
+                    <XCircle size={24} />
+                    <span style={{ fontSize: '1.15rem', fontWeight: 800, letterSpacing: '-0.02em' }}>
                       PAYMENT REJECTED
                     </span>
                   </div>
-                  <p style={{ fontSize: '0.85rem', color: '#991b1b' }}>
-                    One or more cryptographic or protocol validation checks failed. Do not deliver goods.
+                  <p style={{ fontSize: '0.85rem', color: 'var(--danger-text)' }}>
+                    One or more cryptographic validation checks failed. Transaction has been aborted locally to prevent financial loss.
                   </p>
                 </div>
               )}
 
-              {/* Checks Checklist */}
-              <div style={{ marginBottom: '1.25rem' }}>
-                <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
-                  Verification Checks (10-Point Guard)
+              {/* 10-Point Checklist */}
+              <div style={{ marginBottom: '1.4rem' }}>
+                <span
+                  style={{
+                    fontSize: '0.74rem',
+                    fontWeight: 800,
+                    color: 'var(--text-muted)',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.08em',
+                  }}
+                >
+                  10-Point Cryptographic Guard Results
                 </span>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', marginTop: '0.5rem' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.45rem', marginTop: '0.6rem' }}>
                   {result.checks.map((chk, i) => (
                     <div
                       key={i}
                       style={{
                         display: 'flex',
                         alignItems: 'flex-start',
-                        gap: '0.5rem',
-                        fontSize: '0.825rem',
-                        padding: '0.4rem 0.6rem',
-                        backgroundColor: 'var(--bg-subtle)',
+                        gap: '0.65rem',
+                        fontSize: '0.83rem',
+                        padding: '0.55rem 0.8rem',
+                        background: 'var(--bg-surface)',
                         borderRadius: 'var(--radius-sm)',
+                        border: '1px solid var(--border-subtle)',
                       }}
                     >
                       {chk.passed ? (
-                        <CheckCircle size={15} color="var(--success)" style={{ marginTop: '2px', flexShrink: 0 }} />
+                        <CheckCircle size={16} style={{ color: 'var(--success)', marginTop: '2px', flexShrink: 0 }} />
                       ) : (
-                        <XCircle size={15} color="var(--danger)" style={{ marginTop: '2px', flexShrink: 0 }} />
+                        <XCircle size={16} style={{ color: 'var(--danger)', marginTop: '2px', flexShrink: 0 }} />
                       )}
                       <div>
-                        <strong>{chk.title}</strong>
-                        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{chk.detail}</div>
+                        <strong style={{ color: chk.passed ? 'var(--text-main)' : 'var(--danger-text)' }}>{chk.title}</strong>
+                        <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>{chk.detail}</div>
                       </div>
                     </div>
                   ))}
                 </div>
               </div>
 
-              {/* Merchant Receipt if accepted */}
+              {/* Digitally Signed Merchant Receipt */}
               {result.receipt && (
-                <div style={{ backgroundColor: 'var(--bg-subtle)', padding: '0.85rem', borderRadius: 'var(--radius-sm)', fontSize: '0.8rem' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontWeight: 700, marginBottom: '0.4rem' }}>
-                    <Receipt size={16} /> Digitally Signed Merchant Receipt Generated
+                <div
+                  style={{
+                    background: 'var(--bg-surface-elevated)',
+                    padding: '1.15rem',
+                    borderRadius: 'var(--radius-md)',
+                    border: '1px solid var(--border-subtle)',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 700, color: 'var(--text-main)', marginBottom: '0.6rem' }}>
+                    <Receipt size={17} style={{ color: 'var(--primary)' }} />
+                    <span>Digitally Signed Merchant Receipt</span>
                   </div>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                    Signature: <span className="font-mono">{result.receipt.receipt_signature.slice(0, 24)}...</span>
-                  </div>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                    Token Hash: <span className="font-mono">{result.receipt.token_hash.slice(0, 24)}...</span>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', fontSize: '0.76rem', color: 'var(--text-muted)' }}>
+                    <div>
+                      Receipt Signature:{' '}
+                      <span className="font-mono" style={{ color: 'var(--accent)' }}>
+                        {result.receipt.receipt_signature.slice(0, 28)}...
+                      </span>
+                    </div>
+                    <div>
+                      SHA-256 Token Digest:{' '}
+                      <span className="font-mono" style={{ color: '#ffffff' }}>
+                        {result.receipt.token_hash.slice(0, 28)}...
+                      </span>
+                    </div>
                   </div>
                 </div>
               )}
             </div>
           ) : (
-            <div style={{ textAlign: 'center', padding: '3.5rem 1rem', color: 'var(--text-muted)' }}>
-              <Receipt size={48} style={{ opacity: 0.3, marginBottom: '1rem' }} />
-              <div>Paste a token bundle from a customer to execute local offline verification.</div>
+            <div
+              style={{
+                textAlign: 'center',
+                padding: '4.5rem 1.5rem',
+                color: 'var(--text-muted)',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: '0.85rem',
+              }}
+            >
+              <div
+                style={{
+                  width: '64px',
+                  height: '64px',
+                  borderRadius: '50%',
+                  background: 'rgba(255, 255, 255, 0.03)',
+                  display: 'grid',
+                  placeItems: 'center',
+                  color: 'var(--text-dim)',
+                  border: '1px dashed var(--border-medium)',
+                }}
+              >
+                <Receipt size={32} />
+              </div>
+              <strong style={{ color: 'var(--text-secondary)', fontSize: '1rem' }}>Terminal Ready for Verification</strong>
+              <p style={{ maxWidth: '340px', fontSize: '0.84rem' }}>
+                Paste the customer's offline token bundle into the left pane to execute full cryptographic validation.
+              </p>
             </div>
           )}
         </div>
@@ -414,3 +489,5 @@ export function ReceivePayment() {
     </div>
   );
 }
+
+export default ReceivePayment;

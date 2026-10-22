@@ -3,7 +3,16 @@ import { Link } from 'react-router-dom';
 import { useNetwork } from '../context/NetworkContext';
 import { apiService } from '../api/client';
 import { StatusBadge, DataTable, LoadingSpinner, ErrorMessage } from '../components/UIComponents';
-import { AlertOctagon, Search, ArrowRight, ShieldAlert } from 'lucide-react';
+import {
+  AlertOctagon,
+  Search,
+  ArrowRight,
+  ShieldAlert,
+  ChevronRight,
+  Shield,
+  Clock,
+  Layers,
+} from 'lucide-react';
 
 export function SuspiciousQueue() {
   const { isOnline } = useNetwork();
@@ -49,12 +58,14 @@ export function SuspiciousQueue() {
 
   const columns = [
     {
-      header: 'Transaction ID',
+      header: 'Transaction ID & Device',
       accessor: 'transaction_id',
       render: (f) => (
         <div>
-          <span className="font-mono" style={{ fontWeight: 600 }}>{f.transaction_id.slice(0, 10)}...</span>
-          <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+          <span className="font-mono" style={{ fontWeight: 600, color: 'var(--accent)' }}>
+            {f.transaction_id.slice(0, 10)}...
+          </span>
+          <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginTop: '2px' }}>
             Device: <span className="font-mono">{f.payer_device_id?.slice(0, 8)}...</span>
           </div>
         </div>
@@ -63,13 +74,17 @@ export function SuspiciousQueue() {
     {
       header: 'Amount Claimed',
       accessor: 'amount',
-      render: (f) => <strong>₹{(f.amount / 100).toFixed(2)}</strong>,
+      render: (f) => (
+        <strong style={{ color: '#ffffff', fontSize: '0.95rem' }}>
+          ₹{(f.amount / 100).toFixed(2)}
+        </strong>
+      ),
     },
     {
-      header: 'Security Flag & Breach Reason',
+      header: 'Security Flag & Protocol Breach Reason',
       accessor: 'flag_reason',
       render: (f) => (
-        <div style={{ color: '#991b1b', fontSize: '0.85rem', fontWeight: 600, maxWidth: '380px' }}>
+        <div style={{ color: '#fb7185', fontSize: '0.84rem', fontWeight: 600, maxWidth: '420px', lineHeight: 1.4 }}>
           {f.flag_reason}
         </div>
       ),
@@ -80,51 +95,70 @@ export function SuspiciousQueue() {
       render: (f) => <StatusBadge status={f.status} />,
     },
     {
-      header: 'Detected At',
+      header: 'Detected Timestamp',
       accessor: 'created_at',
-      render: (f) => new Date(f.created_at).toLocaleString(),
+      render: (f) => (
+        <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+          {new Date(f.created_at).toLocaleString()}
+        </span>
+      ),
     },
     {
-      header: 'Action',
+      header: 'Forensics',
       accessor: 'action',
       render: (f) => (
         <Link
           to={`/transaction/${f.transaction_id}`}
           className="btn btn-sm btn-outline"
+          style={{ padding: '0.35rem 0.65rem' }}
+          title="Inspect Evidence Dossier"
         >
           <span>Evidence</span>
-          <ArrowRight size={14} />
+          <ChevronRight size={14} />
         </Link>
       ),
     },
   ];
 
-  if (loading) return <LoadingSpinner message="Scanning flagged transactions..." />;
+  if (loading) return <LoadingSpinner message="Scanning flagged transactions and anomaly signatures..." />;
 
   return (
     <div className="page-container">
-      <div style={{ marginBottom: '1.75rem' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <AlertOctagon size={26} color="var(--danger)" />
-          <h1>Suspicious Transaction Queue</h1>
+      {/* Title Header */}
+      <div className="page-title-group">
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
+          <div>
+            <p className="eyebrow">FORENSIC SURVEILLANCE QUEUE</p>
+            <h1>
+              <AlertOctagon size={28} style={{ color: 'var(--danger)' }} />
+              <span>Suspicious Claims & Flags</span>
+            </h1>
+            <p>Investigate offline double-spend attempts, replay nonces, and counter sequencing anomalies.</p>
+          </div>
+
+          <div style={{ display: 'flex', gap: '0.65rem' }}>
+            <span className="badge badge-flagged font-mono">
+              {filtered.length} flagged cases
+            </span>
+          </div>
         </div>
-        <p>Investigate offline double-spend attempts, replay nonces, and counter sequencing anomalies.</p>
       </div>
 
       <ErrorMessage error={errorMsg} onRetry={loadFlags} />
 
-      {/* Filter Bar */}
-      <div className="card" style={{ padding: '1rem', marginBottom: '1.5rem' }}>
+      {/* Filter and Search Bar */}
+      <div className="card" style={{ padding: '1rem 1.4rem', marginBottom: '1.75rem' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
-          <div style={{ display: 'flex', gap: '0.5rem' }}>
+          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
             {[
               { id: 'ALL', label: 'All Flagged' },
               { id: 'DOUBLE_SPEND', label: 'Double-Spends' },
-              { id: 'REPLAY', label: 'Replay Attacks' },
-              { id: 'COUNTER', label: 'Counter Replays' },
+              { id: 'REPLAY', label: 'Replay Nonces' },
+              { id: 'COUNTER', label: 'Counter Rollbacks' },
             ].map((t) => (
               <button
                 key={t.id}
+                type="button"
                 onClick={() => setFilterType(t.id)}
                 className={`btn btn-sm ${filterType === t.id ? 'btn-danger' : 'btn-outline'}`}
               >
@@ -133,20 +167,21 @@ export function SuspiciousQueue() {
             ))}
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', minWidth: '260px' }}>
-            <Search size={16} color="var(--text-muted)" />
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', minWidth: '280px' }}>
+            <Search size={16} style={{ color: 'var(--text-muted)' }} />
             <input
               type="text"
               className="form-control"
-              placeholder="Search by ID or reason..."
+              placeholder="Search by ID or breach reason..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              style={{ padding: '0.4rem 0.75rem', fontSize: '0.85rem' }}
+              style={{ padding: '0.5rem 0.85rem', fontSize: '0.85rem' }}
             />
           </div>
         </div>
       </div>
 
+      {/* Flagged Claims Table */}
       <div className="card">
         <DataTable
           columns={columns}
@@ -157,3 +192,5 @@ export function SuspiciousQueue() {
     </div>
   );
 }
+
+export default SuspiciousQueue;

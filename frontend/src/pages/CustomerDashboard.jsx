@@ -6,19 +6,34 @@ import { useDevice } from '../context/DeviceContext';
 import { apiService } from '../api/client';
 import { getSyncQueue } from '../db/indexedDB';
 import { LoadingSpinner, StatusBadge } from '../components/UIComponents';
-import { Wallet, ArrowUpRight, ArrowDownLeft, RefreshCw, Smartphone, ShieldCheck, CircleHelp } from 'lucide-react';
+import {
+  ArrowUpRight,
+  ArrowDownLeft,
+  RefreshCw,
+  Smartphone,
+  ShieldCheck,
+  CircleHelp,
+  Zap,
+  Lock,
+  ChevronRight,
+  CreditCard,
+} from 'lucide-react';
 
-const money = (paise) => `₹${(Number(paise || 0) / 100).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+const formatInr = (paise) =>
+  `₹${(Number(paise || 0) / 100).toLocaleString('en-IN', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
 
 export function CustomerDashboard() {
   const { user } = useAuth();
-  const { isOnline } = useNetwork();
-  const { isRegistered } = useDevice();
+  const { isOnline, isSimulatedOffline, toggleSimulatedOffline } = useNetwork();
+  const { isRegistered, device } = useDevice();
   const [wallet, setWallet] = useState(null);
   const [pendingCount, setPendingCount] = useState(0);
   const [recent, setRecent] = useState([]);
   const [loading, setLoading] = useState(true);
-  const merchant = user?.role === 'merchant';
+  const isMerchant = user?.role === 'merchant';
 
   useEffect(() => {
     let active = true;
@@ -26,50 +41,376 @@ export function CustomerDashboard() {
       setLoading(true);
       try {
         const queue = await getSyncQueue();
-        if (active) setPendingCount((queue || []).filter(x => x.local_status !== 'SETTLED').length);
+        if (active) {
+          setPendingCount((queue || []).filter((x) => x.local_status !== 'SETTLED').length);
+        }
         if (isOnline) {
-          const [walletResult, txResult] = await Promise.allSettled([apiService.getWallet(), apiService.getTransactions()]);
+          const [walletResult, txResult] = await Promise.allSettled([
+            apiService.getWallet(),
+            apiService.getTransactions(),
+          ]);
           if (!active) return;
           if (walletResult.status === 'fulfilled') setWallet(walletResult.value.data);
-          if (txResult.status === 'fulfilled') setRecent((txResult.value.data || []).slice(0, 4));
+          if (txResult.status === 'fulfilled') {
+            setRecent((txResult.value.data || []).slice(0, 5));
+          }
         }
       } catch (error) {
         console.warn('Could not load dashboard data:', error);
-      } finally { if (active) setLoading(false); }
+      } finally {
+        if (active) setLoading(false);
+      }
     }
     load();
-    return () => { active = false; };
+    return () => {
+      active = false;
+    };
   }, [isOnline]);
 
-  if (loading) return <LoadingSpinner message="Loading your wallet..." />;
+  if (loading) return <LoadingSpinner message="Decrypting wallet & syncing local ledger..." />;
 
-  return <div className="page-container simple-dashboard">
-    <section className="welcome-row">
-      <div><p className="eyebrow">YOUR WALLET</p><h1>Hello, {user?.username || 'there'}</h1><p className="welcome-copy">{merchant ? 'Receive a payment, even when your internet is unavailable.' : 'Send money securely, even when your internet is unavailable.'}</p></div>
-      <span className={`large-status ${isOnline ? 'is-online' : 'is-offline'}`}>{isOnline ? <><span className="status-dot"/> Connected</> : <><span className="status-dot"/> Offline mode</>}</span>
-    </section>
+  return (
+    <div className="page-container simple-dashboard">
+      {/* Top Welcome Bar */}
+      <section className="welcome-row">
+        <div>
+          <p className="eyebrow">
+            {isMerchant ? 'POINT-OF-SALE VAULT' : 'CRYPTOGRAPHIC FINTECH VAULT'}
+          </p>
+          <h1>Welcome back, {user?.full_name || user?.username}</h1>
+          <p className="welcome-copy">
+            {isMerchant
+              ? 'Receive verified offline payments with client-side ECDSA P-256 verification.'
+              : 'Create cryptographically signed payments that work anywhere without internet.'}
+          </p>
+        </div>
 
-    {!isRegistered && <section className="simple-notice"><span className="notice-icon"><Smartphone size={20}/></span><div className="notice-copy"><strong>One quick setup before you start</strong><p>Set up this browser once so it can safely sign offline payments.</p></div><Link className="btn btn-primary" to="/device">Set up device</Link></section>}
-    {pendingCount > 0 && <section className="simple-notice pending-notice"><span className="notice-icon"><RefreshCw size={20}/></span><div className="notice-copy"><strong>{pendingCount} payment{pendingCount === 1 ? '' : 's'} waiting to sync</strong><p>Reconnect to send them to the bank for settlement.</p></div><Link className="btn btn-primary" to="/sync-queue">Sync payments</Link></section>}
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.65rem' }}>
+          <span className={`large-status ${isOnline ? 'is-online' : 'is-offline'}`}>
+            <span className="status-dot" />
+            {isOnline ? 'Gateway Connected' : 'Local Mesh Mode'}
+          </span>
+          <button
+            type="button"
+            onClick={toggleSimulatedOffline}
+            className="btn btn-sm btn-outline"
+            style={{ fontSize: '0.78rem', padding: '0.35rem 0.75rem' }}
+          >
+            <Zap size={13} />
+            <span>{isSimulatedOffline ? 'Go Back Online' : 'Test Offline Mode'}</span>
+          </button>
+        </div>
+      </section>
 
-    <section className="balance-panel">
-      <div><p className="balance-label">TOTAL WALLET BALANCE</p><h2>{wallet ? money(wallet.total_balance) : 'Connect to view balance'}</h2><p className="balance-note">Your balance and reserve are managed securely by the bank.</p></div>
-      <div className="balance-icon"><Wallet size={25}/></div>
-      <div className="balance-breakdown"><div><span>Available to use</span><strong>{wallet ? money(wallet.available_balance) : '—'}</strong></div><div><span>Kept in offline reserve</span><strong>{wallet ? money(wallet.reserved_balance) : '—'}</strong></div></div>
-    </section>
+      {/* Action Prompts & Banners */}
+      {!isRegistered && (
+        <section className="simple-notice">
+          <span className="notice-icon">
+            <Smartphone size={22} />
+          </span>
+          <div className="notice-copy">
+            <strong>Browser Cryptographic Enclave Not Initialized</strong>
+            <p>Generate your browser's private ECDSA P-256 key pair to enable zero-network signed payments.</p>
+          </div>
+          <Link className="btn btn-primary btn-sm" to="/device">
+            Initialize Device Key
+          </Link>
+        </section>
+      )}
 
-    <h2 className="section-heading">What would you like to do?</h2>
-    <section className="simple-actions">
-      {!merchant ? <Link to="/pay" className="action-card primary-action"><span className="action-icon"><ArrowUpRight size={22}/></span><span><strong>Pay someone</strong><small>Create a payment that works offline</small></span><span className="action-arrow">→</span></Link> : <Link to="/receive" className="action-card primary-action"><span className="action-icon"><ArrowDownLeft size={22}/></span><span><strong>Receive a payment</strong><small>Check a customer's offline payment</small></span><span className="action-arrow">→</span></Link>}
-      <Link to="/wallet" className="action-card"><span className="action-icon"><Wallet size={22}/></span><span><strong>Manage reserve</strong><small>Prepare money for offline use</small></span><span className="action-arrow">→</span></Link>
-      <Link to="/history" className="action-card"><span className="action-icon"><RefreshCw size={22}/></span><span><strong>Payment activity</strong><small>See payments and their status</small></span><span className="action-arrow">→</span></Link>
-    </section>
+      {pendingCount > 0 && (
+        <section className="simple-notice pending-notice">
+          <span className="notice-icon">
+            <RefreshCw size={22} className="spin-slow" />
+          </span>
+          <div className="notice-copy">
+            <strong>
+              {pendingCount} Offline Payment{pendingCount === 1 ? '' : 's'} Awaiting Bank Settlement
+            </strong>
+            <p>Your signed offline transactions are stored safely in IndexedDB and ready to upload.</p>
+          </div>
+          <Link className="btn btn-primary btn-sm" to="/sync-queue">
+            Sync Now
+          </Link>
+        </section>
+      )}
 
-    <section className="recent-panel"><div className="recent-heading"><div><h2>Recent payments</h2><p>Your latest payment activity</p></div><Link to="/history">View all</Link></div>
-      {recent.length === 0 ? <div className="empty-state"><ReceiptIcon/><strong>No payments yet</strong><p>Your recent payments will appear here.</p></div> : <div className="recent-list">{recent.map((tx) => <div className="recent-row" key={tx.transaction_id}><div className="recent-symbol"><Wallet size={17}/></div><div className="recent-description"><strong>Payment</strong><small>Ref: {String(tx.transaction_id || '').slice(0, 12)}</small></div><strong className="recent-amount">{money(tx.amount)}</strong><StatusBadge status={tx.status}/></div>)}</div>}
-    </section>
-    <p className="plain-language-note"><ShieldCheck size={16}/> <span>Offline payments are provisional until they sync with the bank. <Link to="/wallet">Learn about your reserve</Link>.</span></p>
-  </div>;
+      {/* Main Hologram Virtual Smart Card */}
+      <section className="hologram-card" style={{ marginBottom: '2.4rem' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', position: 'relative', zIndex: 2 }}>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.4rem' }}>
+              <span
+                style={{
+                  fontSize: '0.74rem',
+                  fontWeight: 800,
+                  letterSpacing: '0.12em',
+                  color: '#93c5fd',
+                  textTransform: 'uppercase',
+                }}
+              >
+                {isMerchant ? 'MERCHANT ACCOUNT' : 'OFFLINEPAY SECURE VAULT'}
+              </span>
+              <span
+                style={{
+                  fontSize: '0.66rem',
+                  padding: '2px 8px',
+                  borderRadius: '999px',
+                  background: 'rgba(99, 102, 241, 0.3)',
+                  border: '1px solid rgba(99, 102, 241, 0.5)',
+                  color: '#e0e7ff',
+                  fontWeight: 700,
+                }}
+              >
+                TIER-1 RESERVE
+              </span>
+            </div>
+            <div
+              style={{
+                fontSize: '2.8rem',
+                fontWeight: 800,
+                color: '#ffffff',
+                letterSpacing: '-0.04em',
+                lineHeight: 1.1,
+              }}
+            >
+              {wallet ? formatInr(wallet.total_balance) : 'Offline Cached'}
+            </div>
+            <p style={{ fontSize: '0.85rem', color: '#cbd5e1', marginTop: '0.35rem' }}>
+              Total liquidity managed by double-entry banking ledger
+            </p>
+          </div>
+
+          <div style={{ textAlign: 'right' }}>
+            <div
+              style={{
+                display: 'inline-flex',
+                padding: '0.75rem',
+                borderRadius: 'var(--radius-md)',
+                background: 'rgba(255, 255, 255, 0.08)',
+                backdropFilter: 'blur(8px)',
+                border: '1px solid rgba(255, 255, 255, 0.15)',
+                color: '#ffffff',
+              }}
+            >
+              <CreditCard size={28} />
+            </div>
+            <div
+              style={{
+                fontSize: '0.72rem',
+                fontFamily: 'var(--font-mono)',
+                color: '#94a3b8',
+                marginTop: '0.5rem',
+              }}
+            >
+              DEVICE ID: {device?.device_id ? device.device_id.slice(0, 10) + '...' : 'UNLINKED'}
+            </div>
+          </div>
+        </div>
+
+        {/* Card Metrics Breakdown */}
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(3, 1fr)',
+            gap: '1.25rem',
+            paddingTop: '1.6rem',
+            marginTop: '1.6rem',
+            borderTop: '1px solid rgba(255, 255, 255, 0.12)',
+            position: 'relative',
+            zIndex: 2,
+          }}
+        >
+          <div>
+            <span
+              style={{
+                display: 'block',
+                fontSize: '0.74rem',
+                color: '#94a3b8',
+                textTransform: 'uppercase',
+                letterSpacing: '0.06em',
+                marginBottom: '0.25rem',
+                fontWeight: 700,
+              }}
+            >
+              Available Funds
+            </span>
+            <strong style={{ fontSize: '1.35rem', color: '#ffffff', fontWeight: 800 }}>
+              {wallet ? formatInr(wallet.available_balance) : '—'}
+            </strong>
+          </div>
+
+          <div>
+            <span
+              style={{
+                display: 'block',
+                fontSize: '0.74rem',
+                color: '#93c5fd',
+                textTransform: 'uppercase',
+                letterSpacing: '0.06em',
+                marginBottom: '0.25rem',
+                fontWeight: 700,
+              }}
+            >
+              Locked in Offline Reserve
+            </span>
+            <strong style={{ fontSize: '1.35rem', color: '#38bdf8', fontWeight: 800 }}>
+              {wallet ? formatInr(wallet.reserved_balance) : '—'}
+            </strong>
+          </div>
+
+          <div>
+            <span
+              style={{
+                display: 'block',
+                fontSize: '0.74rem',
+                color: '#a7f3d0',
+                textTransform: 'uppercase',
+                letterSpacing: '0.06em',
+                marginBottom: '0.25rem',
+                fontWeight: 700,
+              }}
+            >
+              Enclave Key Status
+            </span>
+            <strong
+              style={{
+                fontSize: '1.1rem',
+                color: isRegistered ? '#34d399' : '#fbbf24',
+                fontWeight: 700,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+              }}
+            >
+              <ShieldCheck size={18} />
+              <span>{isRegistered ? 'P-256 Armed' : 'Unregistered'}</span>
+            </strong>
+          </div>
+        </div>
+      </section>
+
+      {/* Action Hub */}
+      <h2 className="section-heading">Quick Actions & Workflows</h2>
+      <section className="simple-actions">
+        {!isMerchant ? (
+          <Link to="/pay" className="action-card primary-action">
+            <span className="action-icon">
+              <ArrowUpRight size={24} />
+            </span>
+            <span>
+              <strong>Create Offline Payment</strong>
+              <small>Generate signed ECDSA token bundle & QR code</small>
+            </span>
+            <span className="action-arrow">→</span>
+          </Link>
+        ) : (
+          <Link to="/receive" className="action-card primary-action">
+            <span className="action-icon">
+              <ArrowDownLeft size={24} />
+            </span>
+            <span>
+              <strong>Receive & Verify Payment</strong>
+              <small>Validate P-256 signatures and sign POS receipt</small>
+            </span>
+            <span className="action-arrow">→</span>
+          </Link>
+        )}
+
+        <Link to="/wallet" className="action-card">
+          <span className="action-icon">
+            <Lock size={22} />
+          </span>
+          <span>
+            <strong>Allowance Reserve Vault</strong>
+            <small>Lock funds for zero-internet transactions</small>
+          </span>
+          <span className="action-arrow">→</span>
+        </Link>
+
+        <Link to="/history" className="action-card">
+          <span className="action-icon">
+            <RefreshCw size={22} />
+          </span>
+          <span>
+            <strong>Cryptographic Ledger</strong>
+            <small>Audit signatures, nonces & settlement states</small>
+          </span>
+          <span className="action-arrow">→</span>
+        </Link>
+      </section>
+
+      {/* Recent Activity Log */}
+      <section className="recent-panel">
+        <div className="recent-heading">
+          <div>
+            <h2>Recent Activity & Cryptographic Proofs</h2>
+            <p>Real-time records from local storage and bank gateway</p>
+          </div>
+          <Link to="/history">View Full Ledger →</Link>
+        </div>
+
+        {recent.length === 0 ? (
+          <div className="empty-state">
+            <CircleHelp size={32} style={{ color: 'var(--text-dim)', marginBottom: '0.4rem' }} />
+            <strong>No transaction records found</strong>
+            <p>Your signed offline payments and receipts will automatically synchronize here.</p>
+          </div>
+        ) : (
+          <div className="recent-list">
+            {recent.map((tx) => (
+              <div className="recent-row" key={tx.transaction_id}>
+                <div className="recent-symbol">
+                  <Wallet size={19} />
+                </div>
+                <div className="recent-description">
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <strong>
+                      {isMerchant ? 'Payment Received' : 'Payment Dispatched'}
+                    </strong>
+                    <span
+                      className="font-mono"
+                      style={{
+                        fontSize: '0.72rem',
+                        color: 'var(--text-muted)',
+                        background: 'rgba(255, 255, 255, 0.05)',
+                        padding: '1px 6px',
+                        borderRadius: '4px',
+                      }}
+                    >
+                      {String(tx.transaction_id || '').slice(0, 10)}...
+                    </span>
+                  </div>
+                  <small>
+                    Counter #{tx.counter || 0} • {new Date(tx.created_at || Date.now()).toLocaleTimeString()}
+                  </small>
+                </div>
+                <strong className="recent-amount">{formatInr(tx.amount)}</strong>
+                <StatusBadge status={tx.status} />
+                <Link
+                  to={`/transaction/${tx.transaction_id}`}
+                  className="btn btn-sm btn-ghost"
+                  style={{ padding: '0.35rem 0.6rem' }}
+                  title="Inspect Cryptographic Proof"
+                >
+                  <ChevronRight size={16} />
+                </Link>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
+      {/* Security Footnote */}
+      <p className="plain-language-note">
+        <ShieldCheck size={17} />
+        <span>
+          Offline payments use strictly monotonic counters to prevent double-spending without needing a real-time internet connection.{' '}
+          <Link to="/wallet">Learn how reserve allowance locking works</Link>.
+        </span>
+      </p>
+    </div>
+  );
 }
 
-function ReceiptIcon() { return <CircleHelp size={25} aria-hidden="true"/>; }
+export default CustomerDashboard;

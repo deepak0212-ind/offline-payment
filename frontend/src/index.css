@@ -1243,12 +1243,633 @@ textarea {
 }
 
 /* ==========================================================================
+   GRID LAYOUT UTILITIES
+   ========================================================================== */
+
+.grid-2 {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1.5rem;
+  align-items: start;
+}
+
+.grid-3 {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.25rem;
+  align-items: start;
+}
+
+/* ==========================================================================
+   DASHBOARD - CLEAN FINTECH VAULT INTERFACE
+   ========================================================================== */
+
+.simple-dashboard {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 2rem 2rem;
+  width: 100%;
+}
+
+/* Welcome Row */
+.welcome-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+  flex-wrap: wrap;
+}
+
+.welcome-row h1 {
+  font-size: 1.85rem;
+  font-weight: 800;
+  color: var(--text-main);
+  letter-spacing: -0.03em;
+  line-height: 1.2;
+  margin-top: 0.25rem;
+  margin-bottom: 0.35rem;
+}
+
+.eyebrow {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--primary);
+  margin-bottom: 0.2rem;
+}
+
+.welcome-copy {
+  font-size: 0.95rem;
+  color: var(--text-secondary);
+  max-width: 620px;
+  line-height: 1.5;
+}
+
+.large-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.45rem 0.95rem;
+  border-radius: var(--radius-pill);
+  font-size: 0.84rem;
+  font-weight: 600;
+  box-shadow: var(--shadow-xs);
+}
+
+.large-status.is-online {
+  background: var(--success-bg);
+  color: var(--success-text);
+  border: 1px solid var(--success-border);
+}
+
+.large-status.is-offline {
+  background: var(--warning-bg);
+  color: var(--warning-text);
+  border: 1px solid var(--warning-border);
+}
+
+/* Banners & Notices */
+.simple-notice {
+  display: flex;
+  align-items: center;
+  gap: 1.15rem;
+  background: #ffffff;
+  border: 1px solid var(--primary-border);
+  border-left: 4px solid var(--primary);
+  border-radius: var(--radius-lg);
+  padding: 1.15rem 1.35rem;
+  margin-bottom: 1.75rem;
+  box-shadow: var(--shadow-sm);
+}
+
+.simple-notice.pending-notice {
+  border-color: var(--warning-border);
+  border-left-color: var(--warning);
+  background: #fffdf5;
+}
+
+.notice-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-md);
+  background: var(--primary-light);
+  color: var(--primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.pending-notice .notice-icon {
+  background: var(--warning-bg);
+  color: var(--warning-text);
+}
+
+.notice-copy {
+  flex: 1;
+  min-width: 0;
+}
+
+.notice-copy strong {
+  display: block;
+  font-size: 0.95rem;
+  color: var(--text-main);
+  margin-bottom: 0.2rem;
+}
+
+.notice-copy p {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+/* Main Hologram Virtual Smart Card */
+.hologram-card {
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 55%, #0f172a 100%);
+  border: 1px solid #334155;
+  border-radius: var(--radius-xl);
+  padding: 2.2rem 2.4rem;
+  color: #ffffff;
+  box-shadow: 0 12px 30px -6px rgba(15, 23, 42, 0.25), 0 4px 6px -2px rgba(15, 23, 42, 0.15);
+  position: relative;
+  overflow: hidden;
+  margin-bottom: 2.4rem;
+}
+
+.hologram-card::after {
+  content: '';
+  position: absolute;
+  top: -50%;
+  right: -20%;
+  width: 420px;
+  height: 420px;
+  background: radial-gradient(circle, rgba(37, 99, 235, 0.22) 0%, rgba(37, 99, 235, 0) 70%);
+  pointer-events: none;
+}
+
+.card-top-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  position: relative;
+  z-index: 2;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.card-tier-tag {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 0.5rem;
+}
+
+.card-account-type {
+  font-size: 0.74rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  color: #93c5fd;
+  text-transform: uppercase;
+}
+
+.card-badge-pill {
+  font-size: 0.66rem;
+  padding: 2px 8px;
+  border-radius: var(--radius-pill);
+  background: rgba(99, 102, 241, 0.3);
+  border: 1px solid rgba(99, 102, 241, 0.5);
+  color: #e0e7ff;
+  font-weight: 700;
+}
+
+.card-total-amount {
+  font-size: 2.8rem;
+  font-weight: 800;
+  color: #ffffff;
+  letter-spacing: -0.04em;
+  line-height: 1.1;
+  font-feature-settings: 'tnum';
+}
+
+.card-subtitle-desc {
+  font-size: 0.85rem;
+  color: #cbd5e1;
+  margin-top: 0.35rem;
+}
+
+.card-device-badge {
+  text-align: right;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.card-chip-icon {
+  display: inline-flex;
+  padding: 0.75rem;
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #ffffff;
+}
+
+.card-device-id {
+  font-size: 0.72rem;
+  font-family: var(--font-mono);
+  color: #94a3b8;
+  margin-top: 0.5rem;
+  letter-spacing: 0.04em;
+}
+
+/* Card Metrics Grid */
+.card-metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.5rem;
+  padding-top: 1.75rem;
+  margin-top: 1.75rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  position: relative;
+  z-index: 2;
+}
+
+.metric-box {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.metric-label {
+  display: block;
+  font-size: 0.74rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: 700;
+}
+
+.metric-label.label-available {
+  color: #94a3b8;
+}
+
+.metric-label.label-reserved {
+  color: #93c5fd;
+}
+
+.metric-label.label-status {
+  color: #a7f3d0;
+}
+
+.metric-value {
+  font-size: 1.45rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  font-feature-settings: 'tnum';
+}
+
+.metric-value.value-available {
+  color: #ffffff;
+}
+
+.metric-value.value-reserved {
+  color: #38bdf8;
+}
+
+.metric-value.value-enclave {
+  font-size: 1.15rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.metric-value.value-enclave.is-armed {
+  color: #34d399;
+}
+
+.metric-value.value-enclave.is-unregistered {
+  color: #fbbf24;
+}
+
+/* Quick Actions Section */
+.section-heading {
+  font-size: 1.25rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--text-main);
+  margin: 2rem 0 1rem;
+}
+
+.simple-actions {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.25rem;
+  margin-bottom: 2.5rem;
+}
+
+.action-card {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: 1.25rem 1.4rem;
+  text-decoration: none;
+  color: var(--text-main);
+  box-shadow: var(--shadow-sm);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
+}
+
+.action-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--primary-border);
+  box-shadow: var(--shadow-md);
+  color: var(--text-main);
+}
+
+.action-card.primary-action {
+  border-color: var(--primary-border);
+  background: linear-gradient(180deg, #ffffff 0%, var(--primary-light) 100%);
+}
+
+.action-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-md);
+  background: var(--primary-light);
+  color: var(--primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all 0.2s ease;
+}
+
+.action-card:hover .action-icon {
+  background: var(--primary);
+  color: #ffffff;
+}
+
+.action-card>span:nth-child(2) {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.action-card strong {
+  font-size: 0.96rem;
+  font-weight: 700;
+  color: var(--text-main);
+  line-height: 1.25;
+}
+
+.action-card small {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  line-height: 1.35;
+}
+
+.action-arrow {
+  font-size: 1.2rem;
+  color: var(--text-light);
+  transition: transform 0.2s ease, color 0.2s ease;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.action-card:hover .action-arrow {
+  color: var(--primary);
+  transform: translateX(3px);
+}
+
+/* Recent Activity Panel */
+.recent-panel {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-xl);
+  padding: 1.75rem 2rem;
+  box-shadow: var(--shadow-sm);
+  margin-bottom: 2rem;
+}
+
+.recent-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--border-subtle);
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.recent-heading h2 {
+  font-size: 1.2rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--text-main);
+  margin-bottom: 0.2rem;
+}
+
+.recent-heading p {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.recent-heading a {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--primary);
+}
+
+.recent-heading a:hover {
+  text-decoration: underline;
+}
+
+.recent-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.recent-row {
+  display: flex;
+  align-items: center;
+  gap: 1.15rem;
+  padding: 0.95rem 1.15rem;
+  background: var(--bg-surface-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  transition: all 0.15s ease;
+}
+
+.recent-row:hover {
+  background: var(--bg-card-hover);
+  border-color: var(--border-medium);
+  box-shadow: var(--shadow-xs);
+}
+
+.recent-symbol {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-md);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  color: var(--primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.recent-description {
+  flex: 1;
+  min-width: 0;
+}
+
+.recent-description strong {
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.recent-description small {
+  display: block;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  margin-top: 0.15rem;
+}
+
+.recent-amount {
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: var(--text-main);
+  font-feature-settings: 'tnum';
+  white-space: nowrap;
+}
+
+.btn-ghost {
+  color: var(--text-muted);
+  border-radius: var(--radius-sm);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.btn-ghost:hover {
+  color: var(--primary);
+  background: var(--primary-light);
+}
+
+.empty-state {
+  text-align: center;
+  padding: 3rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.empty-state strong {
+  font-size: 1rem;
+  color: var(--text-main);
+  margin-bottom: 0.3rem;
+}
+
+.empty-state p {
+  font-size: 0.88rem;
+  color: var(--text-muted);
+  max-width: 420px;
+}
+
+.plain-language-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  font-size: 0.84rem;
+  color: var(--text-muted);
+  line-height: 1.45;
+  padding: 0.5rem 0.25rem;
+  margin-top: 1.5rem;
+}
+
+/* Quick Setup Card (Pay.jsx) */
+.setup-card {
+  border-color: var(--primary-border);
+  box-shadow: var(--shadow-sm);
+}
+
+.setup-badge-icon {
+  width: 46px;
+  height: 46px;
+  border-radius: var(--radius-md);
+  background: var(--primary-light);
+  display: grid;
+  place-items: center;
+  color: var(--primary);
+  flex-shrink: 0;
+}
+
+/* ==========================================================================
    RESPONSIVE DESIGN (MOBILE & TABLET)
    ========================================================================== */
 
 @media (max-width: 900px) {
+
+  .grid-2,
+  .grid-3 {
+    grid-template-columns: 1fr;
+  }
+
   .app-container {
     flex-direction: column;
+  }
+
+  .simple-dashboard {
+    padding: 1.25rem 1rem;
+  }
+
+  .simple-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .hologram-card {
+    padding: 1.6rem 1.4rem;
+  }
+
+  .card-top-row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .card-device-badge {
+    text-align: left;
+    align-items: flex-start;
+  }
+
+  .card-metrics-grid {
+    grid-template-columns: 1fr;
+    gap: 1.25rem;
+  }
+
+  .recent-panel {
+    padding: 1.25rem 1rem;
+  }
+
+  .recent-row {
+    flex-wrap: wrap;
+    gap: 0.75rem;
+  }
+
+  .recent-amount {
+    margin-left: auto;
   }
 
   .simple-sidebar {

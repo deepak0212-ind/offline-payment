@@ -137,153 +137,60 @@ export function CustomerDashboard() {
       )}
 
       {/* Main Hologram Virtual Smart Card */}
-      <section className="hologram-card" style={{ marginBottom: '2.4rem' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', position: 'relative', zIndex: 2 }}>
+      <section className="hologram-card">
+        <div className="card-top-row">
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.4rem' }}>
-              <span
-                style={{
-                  fontSize: '0.74rem',
-                  fontWeight: 800,
-                  letterSpacing: '0.12em',
-                  color: '#93c5fd',
-                  textTransform: 'uppercase',
-                }}
-              >
+            <div className="card-tier-tag">
+              <span className="card-account-type">
                 {isMerchant ? 'MERCHANT ACCOUNT' : 'OFFLINEPAY SECURE VAULT'}
               </span>
-              <span
-                style={{
-                  fontSize: '0.66rem',
-                  padding: '2px 8px',
-                  borderRadius: '999px',
-                  background: 'rgba(99, 102, 241, 0.3)',
-                  border: '1px solid rgba(99, 102, 241, 0.5)',
-                  color: '#e0e7ff',
-                  fontWeight: 700,
-                }}
-              >
+              <span className="card-badge-pill">
                 TIER-1 RESERVE
               </span>
             </div>
-            <div
-              style={{
-                fontSize: '2.8rem',
-                fontWeight: 800,
-                color: '#ffffff',
-                letterSpacing: '-0.04em',
-                lineHeight: 1.1,
-              }}
-            >
+            <div className="card-total-amount">
               {wallet ? formatInr(wallet.total_balance) : 'Offline Cached'}
             </div>
-            <p style={{ fontSize: '0.85rem', color: '#cbd5e1', marginTop: '0.35rem' }}>
+            <p className="card-subtitle-desc">
               Total liquidity managed by double-entry banking ledger
             </p>
           </div>
 
-          <div style={{ textAlign: 'right' }}>
-            <div
-              style={{
-                display: 'inline-flex',
-                padding: '0.75rem',
-                borderRadius: 'var(--radius-md)',
-                background: 'rgba(255, 255, 255, 0.08)',
-                backdropFilter: 'blur(8px)',
-                border: '1px solid rgba(255, 255, 255, 0.15)',
-                color: '#ffffff',
-              }}
-            >
+          <div className="card-device-badge">
+            <div className="card-chip-icon">
               <CreditCard size={28} />
             </div>
-            <div
-              style={{
-                fontSize: '0.72rem',
-                fontFamily: 'var(--font-mono)',
-                color: '#94a3b8',
-                marginTop: '0.5rem',
-              }}
-            >
+            <div className="card-device-id">
               DEVICE ID: {device?.device_id ? device.device_id.slice(0, 10) + '...' : 'UNLINKED'}
             </div>
           </div>
         </div>
 
         {/* Card Metrics Breakdown */}
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(3, 1fr)',
-            gap: '1.25rem',
-            paddingTop: '1.6rem',
-            marginTop: '1.6rem',
-            borderTop: '1px solid rgba(255, 255, 255, 0.12)',
-            position: 'relative',
-            zIndex: 2,
-          }}
-        >
-          <div>
-            <span
-              style={{
-                display: 'block',
-                fontSize: '0.74rem',
-                color: '#94a3b8',
-                textTransform: 'uppercase',
-                letterSpacing: '0.06em',
-                marginBottom: '0.25rem',
-                fontWeight: 700,
-              }}
-            >
+        <div className="card-metrics-grid">
+          <div className="metric-box">
+            <span className="metric-label label-available">
               Available Funds
             </span>
-            <strong style={{ fontSize: '1.35rem', color: '#ffffff', fontWeight: 800 }}>
+            <strong className="metric-value value-available">
               {wallet ? formatInr(wallet.available_balance) : '—'}
             </strong>
           </div>
 
-          <div>
-            <span
-              style={{
-                display: 'block',
-                fontSize: '0.74rem',
-                color: '#93c5fd',
-                textTransform: 'uppercase',
-                letterSpacing: '0.06em',
-                marginBottom: '0.25rem',
-                fontWeight: 700,
-              }}
-            >
+          <div className="metric-box">
+            <span className="metric-label label-reserved">
               Locked in Offline Reserve
             </span>
-            <strong style={{ fontSize: '1.35rem', color: '#38bdf8', fontWeight: 800 }}>
+            <strong className="metric-value value-reserved">
               {wallet ? formatInr(wallet.reserved_balance) : '—'}
             </strong>
           </div>
 
-          <div>
-            <span
-              style={{
-                display: 'block',
-                fontSize: '0.74rem',
-                color: '#a7f3d0',
-                textTransform: 'uppercase',
-                letterSpacing: '0.06em',
-                marginBottom: '0.25rem',
-                fontWeight: 700,
-              }}
-            >
+          <div className="metric-box">
+            <span className="metric-label label-status">
               Enclave Key Status
             </span>
-            <strong
-              style={{
-                fontSize: '1.1rem',
-                color: isRegistered ? '#34d399' : '#fbbf24',
-                fontWeight: 700,
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-              }}
-            >
+            <strong className={`metric-value value-enclave ${isRegistered ? 'is-armed' : 'is-unregistered'}`}>
               <ShieldCheck size={18} />
               <span>{isRegistered ? 'P-256 Armed' : 'Unregistered'}</span>
             </strong>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { QRCodeSVG } from 'qrcode.react';
 import { useAuth } from '../context/AuthContext';
@@ -35,18 +35,24 @@ export function Pay() {
   const [copied, setCopied] = useState(false);
   const [loading, setLoading] = useState(false);
   const [quickSettingUp, setQuickSettingUp] = useState(false);
+  const [certsLoading, setCertsLoading] = useState(true);
+
+  const loadSeqRef = useRef(0);
 
   useEffect(() => {
     loadCerts();
   }, [isOnline, device?.device_id]);
 
-  async function loadCerts() {
+  async function loadCerts(preferredDeviceId) {
+    const seq = ++loadSeqRef.current;
     try {
       let certs = await getAllCertificates();
+      if (seq !== loadSeqRef.current) return;
 
       if (isOnline) {
         try {
           const serverRes = await apiService.getCertificates();
+          if (seq !== loadSeqRef.current) return;
           const serverCerts = serverRes.data || [];
           for (const sc of serverCerts) {
             const payload = JSON.parse(sc.raw_payload_json);
@@ -65,23 +71,31 @@ export function Pay() {
         }
       }
 
+      if (seq !== loadSeqRef.current) return;
       setCertificates(certs || []);
+
+      const devId = preferredDeviceId || device?.device_id;
       if (certs && certs.length > 0) {
-        const match = certs.slice().reverse().find((c) => c.payload?.device_id === device?.device_id);
+        const match = certs.slice().reverse().find((c) => devId && c.payload?.device_id === devId);
         setSelectedCertId(match ? match.certificate_id : certs[certs.length - 1].certificate_id);
       }
     } catch (e) {
       console.error('Error loading certificates from IndexedDB:', e);
+    } finally {
+      if (seq === loadSeqRef.current) {
+        setCertsLoading(false);
+      }
     }
   }
 
   const handleQuickSetup = async () => {
+    if (quickSettingUp) return;
     setQuickSettingUp(true);
     setErrorMsg('');
     setSuccessMsg('');
     try {
       let activeDev = device;
-      if (!isRegistered || !device) {
+      if (!isRegistered || !activeDev) {
         activeDev = await registerDevice('Browser Device');
       }
 
@@ -100,7 +114,10 @@ export function Pay() {
       }
 
       setSuccessMsg('Setup complete! Created browser key and issued signed ₹500 allowance certificate.');
-      await loadCerts();
+      await loadCerts(activeDev.device_id);
+      if (cert) {
+        setSelectedCertId(cert.certificate_id);
+      }
     } catch (err) {
       console.error('Quick setup error:', err);
       setErrorMsg(err.response?.data?.detail || err.message || 'Quick setup failed.');
@@ -113,6 +130,11 @@ export function Pay() {
   const maxPerPayment = activeCert ? activeCert.payload?.max_per_payment || 0 : 0;
   const reserveAmount = activeCert ? activeCert.payload?.reserve_amount || 0 : 0;
   const isDeviceMatch = Boolean(activeCert && device && activeCert.payload?.device_id === device.device_id);
+  const boundCerts = certificates.filter(
+    (c) => Boolean(device?.device_id && c.payload?.device_id === device.device_id)
+  );
+  const hasBoundCert = boundCerts.length > 0;
+  const showQuickSetup = !certsLoading && (!hasBoundCert || !isDeviceMatch);
 
   const handlePresetAmount = (inr) => {
     setAmountInput(String(inr));
@@ -264,39 +286,46 @@ export function Pay() {
       )}
 
       {/* Guide & Setup Banner */}
-      {certificates.length === 0 && (
+      {showQuickSetup && (
         <div
-          className="card"
+          className="card setup-card"
           style={{
             marginBottom: '2rem',
-            border: '1px solid var(--border-glow-indigo)',
-            background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.15) 0%, rgba(17, 24, 39, 0.85) 100%)',
+            border: '1px solid var(--primary-border)',
+            background: 'linear-gradient(135deg, rgba(37, 99, 235, 0.08) 0%, rgba(2, 132, 199, 0.03) 100%)',
           }}
         >
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1.25rem' }}>
-            <div style={{ display: 'flex', gap: '1rem' }}>
+            <div style={{ display: 'flex', gap: '1rem', flex: 1, minWidth: '280px' }}>
               <div
                 style={{
                   width: '46px',
                   height: '46px',
                   borderRadius: 'var(--radius-md)',
-                  background: 'rgba(99, 102, 241, 0.25)',
+                  background: 'var(--primary-light)',
                   display: 'grid',
                   placeItems: 'center',
-                  color: '#a5b4fc',
+                  color: 'var(--primary)',
                   flexShrink: 0,
                 }}
               >
                 <Zap size={24} />
               </div>
               <div>
-                <h3 style={{ color: '#ffffff', marginBottom: '0.35rem' }}>Allowance Certificate Required</h3>
-                <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', maxWidth: '580px', marginBottom: '0.5rem' }}>
-                  To pay while disconnected, your browser needs a <strong>bank-signed Allowance Certificate</strong> that pre-reserves spending power against your account.
+                <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-main)', marginBottom: '0.35rem' }}>
+                  {certificates.length === 0
+                    ? 'Allowance Certificate Required'
+                    : 'Device Key Binding Required'}
+                </h3>
+                <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', maxWidth: '600px', marginBottom: '0.5rem', lineHeight: 1.45 }}>
+                  {certificates.length === 0
+                    ? 'To pay while disconnected from the internet, your browser needs a bank-signed Allowance Certificate that pre-reserves spending power against your account.'
+                    : 'Your account has active certificates, but none are bound to this browser\'s local private key. Fast Setup will register this browser and issue a dedicated ₹500 certificate.'}
                 </p>
-                <div style={{ fontSize: '0.82rem', color: '#93c5fd', display: 'flex', gap: '1.5rem' }}>
-                  <span>✓ Creates Web Crypto Key</span>
+                <div style={{ fontSize: '0.82rem', color: 'var(--primary)', display: 'flex', gap: '1.5rem', flexWrap: 'wrap', fontWeight: 600 }}>
+                  <span>✓ Creates Local Web Crypto Key</span>
                   <span>✓ Issues ₹500 Allowance Certificate</span>
+                  <span>✓ Zero-Network Ready</span>
                 </div>
               </div>
             </div>
@@ -313,7 +342,7 @@ export function Pay() {
                   <span>{quickSettingUp ? 'Arming Device...' : '1-Click Fast Setup (₹500 Reserve)'}</span>
                 </button>
               ) : (
-                <div className="badge badge-pending">Reconnect to create reserve</div>
+                <div className="badge badge-warning">Reconnect to bank gateway to create reserve</div>
               )}
               <Link to="/wallet" className="btn btn-outline">
                 <Lock size={15} />
@@ -344,7 +373,7 @@ export function Pay() {
                 <div
                   style={{
                     padding: '0.85rem 1rem',
-                    background: 'rgba(255, 255, 255, 0.03)',
+                    background: 'var(--bg-surface-elevated)',
                     borderRadius: 'var(--radius-md)',
                     color: 'var(--text-muted)',
                     fontSize: '0.86rem',

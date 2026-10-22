@@ -10,7 +10,11 @@ export function AuthProvider({ children }) {
     return saved ? JSON.parse(saved) : null;
   });
   const [token, setToken] = useState(() => localStorage.getItem('op_token') || null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => {
+    const savedToken = localStorage.getItem('op_token');
+    const savedUser = localStorage.getItem('op_user');
+    return Boolean(savedToken && !savedUser);
+  });
 
   useEffect(() => {
     async function initAuth() {

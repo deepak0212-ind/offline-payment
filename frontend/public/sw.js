@@ -1,11 +1,8 @@
 // Offline Payment System Service Worker for offline application caching
-const CACHE_NAME = 'offlinepay-cache-v1';
+const CACHE_NAME = 'offlinepay-cache-v2';
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
-  '/src/main.jsx',
-  '/src/App.jsx',
-  '/src/index.css'
 ];
 
 self.addEventListener('install', (event) => {
@@ -35,22 +32,46 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  // Let /api calls go through network or fail so client-side offline detection handles it
+  // Let /api calls go through network directly
   if (event.request.url.includes('/api/')) {
+    return;
+  }
+
+  // Only intercept GET requests
+  if (event.request.method !== 'GET') {
     return;
   }
 
   event.respondWith(
     caches.match(event.request).then((cached) => {
-      return (
-        cached ||
-        fetch(event.request).catch(() => {
-          // If offline and requesting navigation, return index.html
-          if (event.request.mode === 'navigate') {
-            return caches.match('/index.html');
+      if (cached) {
+        return cached;
+      }
+
+      return fetch(event.request)
+        .then((response) => {
+          if (response && response.status === 200 && response.type === 'basic') {
+            const copy = response.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
           }
+          return response;
         })
-      );
+        .catch(async () => {
+          // If offline and requesting navigation (e.g. /dashboard), return cached index.html
+          if (event.request.mode === 'navigate') {
+            const indexHtml = (await caches.match('/index.html')) || (await caches.match('/'));
+            if (indexHtml) {
+              return indexHtml;
+            }
+          }
+
+          // Guaranteed valid Response to prevent "TypeError: Failed to convert value to 'Response'"
+          return new Response('Network unavailable and resource is not cached.', {
+            status: 503,
+            statusText: 'Service Unavailable',
+            headers: new Headers({ 'Content-Type': 'text/plain' }),
+          });
+        });
     })
   );
 });

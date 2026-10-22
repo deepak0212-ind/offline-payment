@@ -17,6 +17,7 @@ import {
   Lock,
   ChevronRight,
   CreditCard,
+  Wallet,
 } from 'lucide-react';
 
 const formatInr = (paise) =>

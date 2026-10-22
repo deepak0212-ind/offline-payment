@@ -12,6 +12,7 @@ import {
   ShieldCheck,
   CheckCircle2,
   Coins,
+  Layers,
 } from 'lucide-react';
 
 export function WalletReserve() {
